@@ -2098,6 +2098,14 @@ int ObSqlParameterization::mark_tree(ParseNode *tree ,SqlInfo &sql_info)
       if (OB_FAIL(mark_args(tree, mark_arr, ARGS_NUMBER_SEVEN, sql_info))) {
       }
     }
+  } else if (T_FILE_TABLE_EXPRESSION == tree->type_ ||
+             T_FILE_COPY == tree->type_) {
+    // Paths and options determine the output schema or the export destination.
+    // They are part of the table contract, never execution parameters.
+    for (int i = 0; i < tree->num_child_; ++i) {
+      if (tree->children_[i] != nullptr)
+        tree->children_[i]->is_tree_not_param_ = true;
+    }
   } else if (T_JSON_TABLE_EXPRESSION == tree->type_) {
     if (5 != tree->num_child_) {
       ret = OB_INVALID_ARGUMENT;
@@ -2118,7 +2126,8 @@ int ObSqlParameterization::mark_tree(ParseNode *tree ,SqlInfo &sql_info)
       if (OB_FAIL(mark_args(tree, mark_arr, ARGS_NUMBER_TWO, sql_info))) {
       }
     }
-  } else { /*do nothing*/ }
+  } else { /*do nothing*/
+  }
   return ret;
 }
 

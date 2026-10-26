@@ -41,7 +41,7 @@
 #include "../../../src/sql/parser/sql_parser_base.h"
 
 #define GEN_EXPLAN_STMT(no_use, explain_stmt, explain_type, display_type, stmt, into_table, set_statement_id) \
-  (void)(no_use); \
+  int is_describe = (no_use) != NULL; \
   ParseNode *type_node = NULL; \
   ParseNode *display_node = NULL; \
   if (0 != explain_type) { \
@@ -51,12 +51,14 @@
     malloc_terminal_node(display_node, result->malloc_pool_, display_type); \
   } \
   malloc_non_terminal_node(explain_stmt, result->malloc_pool_, T_EXPLAIN, 5, \
-                           type_node, display_node, into_table, set_statement_id, stmt);
+                           type_node, display_node, into_table, set_statement_id, stmt); \
+  explain_stmt->is_file_describe_ = is_describe;
 %}
 
 %destructor {destroy_tree($$);}<node>
 %destructor {oceanbase::common::ob_free($$);}<str_value_>
 
+%token <non_reserved_keyword> READ_CSV READ_JSON READ_NDJSON READ_PARQUET FILE_GLOB
 %token <node> NAME_OB
 %token <node> STRING_VALUE
 %token <node> NATIONAL_LITERAL
@@ -405,6 +407,8 @@ END_P SET_VAR DELIMITER
 %type <node> opt_limit_clause limit_expr opt_lock_type opt_for_update opt_for_update_wait opt_lock_in_share_mode
 %type <node> sort_list sort_key opt_asc_desc sort_list_for_group_by sort_key_for_group_by opt_asc_desc_for_group_by sort_list_opt_null sort_key_opt_null opt_asc_desc_null
 %type <node> opt_query_expression_option_list query_expression_option_list query_expression_option opt_distinct opt_distinct_or_all opt_separator projection
+%type <node> file_copy_stmt file_copy_source file_copy_options file_copy_option_list file_copy_option file_copy_value file_copy_path
+%type <node> file_table_expr file_table_name file_table_alias
 %type <node> from_list table_references table_reference table_factor normal_relation_factor dot_relation_factor relation_factor
 %type <node> relation_factor_in_hint relation_factor_in_hint_list relation_factor_in_pq_hint opt_relation_factor_in_hint_list relation_factor_in_use_join_hint_list
 %type <node> relation_factor_in_leading_hint_list joined_table tbl_name table_subquery table_subquery_alias
@@ -555,6 +559,8 @@ opt_end_p:
 
 /* only preparable statement will set question mark size */
 stmt:
+    file_copy_stmt { $$ = $1; question_mark_issue($$, result); }
+  |
     select_stmt             { $$ = $1; question_mark_issue($$, result); }
   | insert_stmt             { $$ = $1; question_mark_issue($$, result); }
   | create_table_stmt       {
@@ -8453,6 +8459,69 @@ select_no_parens opt_when
 }
 ;
 
+
+file_copy_stmt:
+COPY file_copy_source TO file_copy_path file_copy_options
+{
+  $$ = $2;
+  if ($$->children_[PARSE_SELECT_INTO] != NULL || $$->children_[PARSE_SELECT_INTO_EXTRA] != NULL) {
+    yyerror(&@1, result, "COPY source may not contain INTO"); YYERROR;
+  }
+  malloc_non_terminal_node($$->children_[PARSE_SELECT_INTO_EXTRA], result->malloc_pool_, T_FILE_COPY, 2, $4, $5);
+}
+;
+file_copy_source:
+select_with_parens { $$ = $1; }
+| relation_factor
+{
+  ParseNode *star=NULL,*project=NULL,*table=NULL,*from=NULL;
+  malloc_terminal_node(star, result->malloc_pool_, T_STAR);
+  malloc_non_terminal_node(project, result->malloc_pool_, T_PROJECT_STRING, 1, star);
+  dup_string_to_node(project, result->malloc_pool_, "*");
+  merge_nodes(project, result, T_PROJECT_LIST, project);
+  malloc_non_terminal_node(table, result->malloc_pool_, T_ORG, 4, $1, NULL, NULL, NULL);
+  merge_nodes(from, result, T_FROM_LIST, table);
+  malloc_select_node($$, result->malloc_pool_);
+  $$->children_[PARSE_SELECT_SELECT]=project;
+  $$->children_[PARSE_SELECT_FROM]=from;
+}
+| relation_factor '(' select_expr_list ')'
+{
+  ParseNode *project=NULL,*table=NULL,*from=NULL;
+  merge_nodes(project, result, T_PROJECT_LIST, $3);
+  malloc_non_terminal_node(table, result->malloc_pool_, T_ORG, 4, $1, NULL, NULL, NULL);
+  merge_nodes(from, result, T_FROM_LIST, table);
+  malloc_select_node($$, result->malloc_pool_);
+  $$->children_[PARSE_SELECT_SELECT]=project;
+  $$->children_[PARSE_SELECT_FROM]=from;
+}
+;
+file_copy_options:
+/* EMPTY */ { $$=NULL; }
+| '(' file_copy_option_list ')' { merge_nodes($$, result, T_EXPR_LIST, $2); }
+| WITH '(' file_copy_option_list ')' { merge_nodes($$, result, T_EXPR_LIST, $3); }
+;
+file_copy_option_list:
+file_copy_option { $$=$1; }
+| file_copy_option_list ',' file_copy_option { malloc_non_terminal_node($$, result->malloc_pool_, T_LINK_NODE, 2, $1, $3); }
+;
+file_copy_option:
+relation_name { malloc_non_terminal_node($$, result->malloc_pool_, T_OP_EQ, 2, $1, NULL); }
+| relation_name file_copy_value { malloc_non_terminal_node($$, result->malloc_pool_, T_OP_EQ, 2, $1, $2); }
+| relation_name COMP_EQ file_copy_value { malloc_non_terminal_node($$, result->malloc_pool_, T_OP_EQ, 2, $1, $3); }
+;
+file_copy_value:
+STRING_VALUE { $$=$1; }
+| QUESTIONMARK { $$=$1; }
+| BOOL_VALUE { $$=$1; }
+| INTNUM { $$=$1; }
+| relation_name { $$=$1; }
+;
+file_copy_path:
+STRING_VALUE { $$=$1; }
+| QUESTIONMARK { $$=$1; }
+;
+
 // for select_into
 //select ..from/.. into ..
 select_into:
@@ -10831,6 +10900,10 @@ tbl_name
   unname_node->sql_str_off_ = @2.first_column;
   $$->value_ = 1; //lateral
 }
+| file_table_expr
+{
+  $$ = $1;
+}
 | json_table_expr
 {
   $$ = $1;
@@ -10847,6 +10920,25 @@ tbl_name
 | hybrid_search_expr
 {
   $$ = $1;
+}
+;
+
+file_table_name:
+READ_CSV { make_name_node($$, result->malloc_pool_, "read_csv"); }
+| READ_JSON { make_name_node($$, result->malloc_pool_, "read_json"); }
+| READ_NDJSON { make_name_node($$, result->malloc_pool_, "read_ndjson"); }
+| READ_PARQUET { make_name_node($$, result->malloc_pool_, "read_parquet"); }
+| FILE_GLOB { make_name_node($$, result->malloc_pool_, "glob"); }
+;
+file_table_alias:
+/* EMPTY */ { $$ = NULL; }
+| NAME_OB { $$ = $1; }
+| AS relation_name { $$ = $2; }
+;
+file_table_expr:
+file_table_name '(' expr_list ')' file_table_alias
+{
+  malloc_non_terminal_node($$, result->malloc_pool_, T_FILE_TABLE_EXPRESSION, 3, $1, $3, $5);
 }
 ;
 
@@ -12306,8 +12398,8 @@ explain_or_desc relation_factor opt_desc_column_option
 
 explain_or_desc:
 EXPLAIN {$$ = NULL;}
-| DESCRIBE {$$ = NULL;}
-| DESC  {$$ = NULL;}
+| DESCRIBE { malloc_terminal_node($$, result->malloc_pool_, T_INT); $$->value_=1; }
+| DESC { malloc_terminal_node($$, result->malloc_pool_, T_INT); $$->value_=1; }
 ;
 
 explainable_stmt:
@@ -17604,6 +17696,11 @@ ACCOUNT
 |       CONSTRAINT_SCHEMA
 |       CONTAINS
 |       CONTRIBUTORS
+|       READ_CSV
+|       READ_JSON
+|       READ_NDJSON
+|       READ_PARQUET
+|       FILE_GLOB
 |       COPY
 |       COUNT
 |       COSINE

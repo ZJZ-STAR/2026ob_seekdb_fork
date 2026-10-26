@@ -112,9 +112,9 @@ int ObLogJsonTable::get_plan_item_info(PlanText &plan_text,
                      name.length(), 
                      plan_item.object_alias_, 
                      plan_item.object_alias_len_);
-    BUF_PRINT_STR("JSON_TABLE",
-                  plan_item.object_type_,
-                  plan_item.object_type_len_);
+    BUF_PRINT_STR(table_type_ == OB_FILE_TABLE_TYPE ? "FILE_SCAN"
+                                                    : "JSON_TABLE",
+                  plan_item.object_type_, plan_item.object_type_len_);
   }
   return ret;
 }

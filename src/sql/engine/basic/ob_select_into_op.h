@@ -95,11 +95,14 @@ public:
   static const int64_t DEFAULT_BUFFER_SIZE = 1LL * 1024 * 1024;
 };
 
+namespace file_sql { class CsvExport; }
 class ObSelectIntoOp : public ObOperator
 {
 public:
   ObSelectIntoOp(ObExecContext &exec_ctx, const ObOpSpec &spec, ObOpInput *input)
     : ObOperator(exec_ctx, spec, input),
+      copy_writer_(nullptr),
+      copy_finished_(false),
       top_limit_cnt_(INT64_MAX),
       is_first_(true),
       field_str_(),
@@ -195,6 +198,12 @@ public:
   virtual void destroy() override;
 
 private:
+  bool is_file_copy() const;
+  int open_file_copy();
+  int run_file_copy(bool batch, int64_t max_rows);
+  int write_file_copy_row();
+  file_sql::CsvExport *copy_writer_;
+  bool copy_finished_;
   int init_env_common();
   int init_csv_env();
   void set_csv_format_options();

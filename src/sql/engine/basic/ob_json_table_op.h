@@ -184,11 +184,13 @@ struct JtScanCtx {
 
 };
 
+namespace file_sql { class Reader; }
 class ObJsonTableOp : public ObOperator
 {
 public:
   ObJsonTableOp(ObExecContext &exec_ctx, const ObOpSpec &spec, ObOpInput *input)
     : ObOperator(exec_ctx, spec, input),
+      file_reader_(nullptr),
       def_root_(nullptr),
       allocator_(&exec_ctx.get_allocator()),
       is_inited_(false),
@@ -230,6 +232,9 @@ private:
   int inner_get_next_row_jt();  // json table function inner
 
 private:
+  int open_file_scan();
+  int next_file_row();
+  file_sql::Reader *file_reader_;
   JtColTreeNode* def_root_;
   common::ObIAllocator *allocator_;
   uint32_t col_count_;

@@ -16,11 +16,12 @@
 
 #define USING_LOG_PREFIX SQL_ENG
 #include "ob_json_table_op.h"
-#include "sql/engine/expr/ob_expr_multi_mode_func_helper.h"
-#include "sql/engine/expr/ob_expr_json_value.h"
-#include "sql/engine/expr/ob_expr_json_query.h"
 #include "common/xml/ob_binary_aggregate.h"
+#include "sql/engine/basic/ob_file_scan_utils.h"
 #include "sql/engine/expr/ob_array_expr_utils.h"
+#include "sql/engine/expr/ob_expr_json_query.h"
+#include "sql/engine/expr/ob_expr_json_value.h"
+#include "sql/engine/expr/ob_expr_multi_mode_func_helper.h"
 
 namespace oceanbase
 {
@@ -326,7 +327,8 @@ OB_DEF_SERIALIZE(ObJsonTableSpec)
     OB_UNIS_ENCODE(info);
   }
   if (OB_FAIL(ret)) {
-  } else if (table_type_ == MulModeTableType::OB_UNNEST_TABLE_TYPE) {
+  } else if ((table_type_ == MulModeTableType::OB_UNNEST_TABLE_TYPE ||
+              table_type_ == OB_FILE_TABLE_TYPE)) {
     OB_UNIS_ENCODE(table_type_);
     int32_t value_exprs_count = value_exprs_.count() - 1;
     OB_UNIS_ENCODE(value_exprs_count);
@@ -334,7 +336,7 @@ OB_DEF_SERIALIZE(ObJsonTableSpec)
       OB_UNIS_ENCODE(value_exprs_.at(i));
     }
   }
-  
+
   return ret;
 }
 
@@ -354,7 +356,8 @@ OB_DEF_SERIALIZE_SIZE(ObJsonTableSpec)
     const ObJtColInfo& info = *cols_def_.at(i);
     OB_UNIS_ADD_LEN(info);
   }
-  if (table_type_ == MulModeTableType::OB_UNNEST_TABLE_TYPE) {
+  if ((table_type_ == MulModeTableType::OB_UNNEST_TABLE_TYPE ||
+       table_type_ == OB_FILE_TABLE_TYPE)) {
     OB_UNIS_ADD_LEN(table_type_);
     int32_t value_exprs_count = value_exprs_.count() - 1;
     OB_UNIS_ADD_LEN(value_exprs_count);
@@ -581,8 +584,147 @@ int ObJsonTableOp::generate_column_trees(JtColTreeNode*& root)
   return ret;
 }
 
+int ObJsonTableOp::open_file_scan() {
+  int ret = OB_SUCCESS;
+  bool enabled = false;
+  ObString secure;
+  ObDatum *datum = nullptr;
+  auto *session = get_exec_ctx().get_my_session();
+  if (session == nullptr)
+    ret = OB_ERR_UNEXPECTED;
+  else if (OB_FAIL(session->get_enable_file_sql(enabled))) {
+  } else if (!enabled) {
+    ret = OB_NOT_SUPPORTED;
+    LOG_USER_ERROR(OB_NOT_SUPPORTED, "File SQL is disabled");
+  } else if (OB_FAIL(session->get_secure_file_priv(secure))) {
+  } else if (OB_FAIL(MY_SPEC.value_exprs_.at(0)->eval(eval_ctx_, datum))) {
+  } else if (datum == nullptr || datum->is_null())
+    ret = OB_INVALID_ARGUMENT;
+  else {
+    if (file_reader_ != nullptr) {
+      file_reader_->~Reader();
+      allocator_->free(file_reader_);
+      file_reader_ = nullptr;
+    }
+    void *buf = allocator_->alloc(sizeof(file_sql::Reader));
+    if (buf == nullptr)
+      ret = OB_ALLOCATE_MEMORY_FAILED;
+    else {
+      file_reader_ = new (buf) file_sql::Reader();
+      ObString v = datum->get_string();
+      if (!file_sql::restore(*file_reader_, std::string(v.ptr(), v.length()),
+                             std::string(secure.ptr(), secure.length()))) {
+        ret = OB_INVALID_ARGUMENT;
+        LOG_USER_ERROR(OB_INVALID_ARGUMENT, file_reader_->input.error.c_str());
+      } else {
+        file_reader_->projected.assign(file_reader_->columns.size(), false);
+        for (int64_t i = 1; OB_SUCC(ret) && i < MY_SPEC.cols_def_.count();
+             ++i) {
+          const ObJtColInfo &c = *MY_SPEC.cols_def_[i];
+          if (c.id_ < 1 || size_t(c.id_) > file_reader_->columns.size())
+            ret = OB_ERR_UNEXPECTED;
+          else if (c.output_column_idx_ >= 0)
+            file_reader_->projected[c.id_ - 1] = true;
+        }
+      }
+    }
+  }
+  return ret;
+}
+
+int ObJsonTableOp::next_file_row() {
+  int ret = OB_SUCCESS;
+  clear_evaluated_flag();
+  std::vector<file_sql::Cell> row;
+  bool eof = false;
+  if (file_reader_ == nullptr)
+    ret = OB_NOT_INIT;
+  else if (!file_reader_->next(row, eof)) {
+    ret = OB_INVALID_ARGUMENT;
+    LOG_USER_ERROR(OB_INVALID_ARGUMENT, file_reader_->input.error.c_str());
+  } else if (eof)
+    ret = OB_ITER_END;
+  else {
+    for (int64_t i = 1; OB_SUCC(ret) && i < MY_SPEC.cols_def_.count(); ++i) {
+      const ObJtColInfo &c = *MY_SPEC.cols_def_[i];
+      if (c.output_column_idx_ < 0)
+        continue;
+      if (c.output_column_idx_ >= MY_SPEC.column_exprs_.count() || c.id_ < 1 ||
+          size_t(c.id_) > row.size()) {
+        ret = OB_ERR_UNEXPECTED;
+        break;
+      }
+      ObExpr *expr = MY_SPEC.column_exprs_[c.output_column_idx_];
+      ObDatum &out = expr->locate_datum_for_write(eval_ctx_);
+      const auto &cell = row[c.id_ - 1];
+      int64_t n = 0;
+      double d = 0;
+      if (cell.null)
+        out.set_null();
+      else
+        switch (expr->datum_meta_.type_) {
+        case ObNullType:
+          out.set_null();
+          break;
+        case ObIntType:
+          if (!file_sql::integer(cell.text, n))
+            ret = OB_INVALID_ARGUMENT;
+          else
+            out.set_int(n);
+          break;
+        case ObTinyIntType:
+          out.set_int(cell.text == "true" || cell.text == "TRUE");
+          break;
+        case ObDoubleType:
+          if (!file_sql::real(cell.text, d))
+            ret = OB_INVALID_ARGUMENT;
+          else
+            out.set_double(d);
+          break;
+        case ObDateType:
+          if (cell.hint == file_sql::DATE) {
+            if (!file_sql::integer(cell.text, n) || n < INT32_MIN ||
+                n > INT32_MAX)
+              ret = OB_INVALID_ARGUMENT;
+            else
+              out.set_date(n);
+          } else if (!file_sql::date_value(cell.text, n))
+            ret = OB_INVALID_ARGUMENT;
+          else
+            out.set_date(n / 86400000000LL);
+          break;
+        case ObDateTimeType:
+          if (cell.hint == file_sql::DATETIME) {
+            if (!file_sql::integer(cell.text, n))
+              ret = OB_INVALID_ARGUMENT;
+            else
+              out.set_datetime(n);
+          } else if (!file_sql::date_value(cell.text, n))
+            ret = OB_INVALID_ARGUMENT;
+          else
+            out.set_datetime(n);
+          break;
+        default: {
+          char *buf = expr->get_str_res_mem(eval_ctx_, cell.text.size());
+          if (buf == nullptr && !cell.text.empty())
+            ret = OB_ALLOCATE_MEMORY_FAILED;
+          else {
+            if (!cell.text.empty())
+              MEMCPY(buf, cell.text.data(), cell.text.size());
+            out.set_string(buf, cell.text.size());
+          }
+        }
+        }
+      expr->get_eval_info(eval_ctx_).evaluated_ = true;
+    }
+  }
+  return ret;
+}
+
 int ObJsonTableOp::inner_open()
 {
+  if (MY_SPEC.table_type_ == OB_FILE_TABLE_TYPE)
+    return open_file_scan();
   INIT_SUCC(ret);
   if (OB_FAIL(init())) {
   } else if (MY_SPEC.value_exprs_.empty()) {
@@ -597,6 +739,15 @@ int ObJsonTableOp::inner_open()
 
 int ObJsonTableOp::inner_rescan()
 {
+  if (MY_SPEC.table_type_ == OB_FILE_TABLE_TYPE) {
+    int ret = ObOperator::inner_rescan();
+    if (ret == OB_SUCCESS &&
+        (file_reader_ == nullptr || !file_reader_->rescan())) {
+      ret = OB_INVALID_ARGUMENT;
+      LOG_USER_ERROR(OB_INVALID_ARGUMENT, "file changed during rescan");
+    }
+    return ret;
+  }
   int ret = OB_SUCCESS;
   if (OB_FAIL(ObOperator::inner_rescan())) {
   } else {
@@ -684,6 +835,11 @@ int ObJsonTableOp::init()
 
 int ObJsonTableOp::inner_close()
 {
+  if (file_reader_ != nullptr) {
+    file_reader_->~Reader();
+    allocator_->free(file_reader_);
+    file_reader_ = nullptr;
+  }
   INIT_SUCC(ret);
   if (OB_NOT_NULL(root_)) {
     if (OB_FAIL(root_->reset(&jt_ctx_))) {
@@ -722,6 +878,11 @@ void ScanNode::reset_reg_columns(JtScanCtx* ctx)
 
 void ObJsonTableOp::destroy()
 {
+  if (file_reader_ != nullptr) {
+    file_reader_->~Reader();
+    allocator_->free(file_reader_);
+    file_reader_ = nullptr;
+  }
   ObOperator::destroy();
 }
 
@@ -1400,6 +1561,8 @@ int UnionNode::get_next_row(void* in, JtScanCtx* ctx, bool& is_null_value)
 // json/xml table function inner
 int ObJsonTableOp::inner_get_next_row()
 {
+  if (MY_SPEC.table_type_ == OB_FILE_TABLE_TYPE)
+    return next_file_row();
   INIT_SUCC(ret);
   bool is_root_null = false;
   if (!(jt_ctx_.is_json_table_func()

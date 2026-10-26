@@ -16,84 +16,76 @@
 
 #define USING_LOG_PREFIX SQL_RESV
 #include "sql/resolver/ob_resolver.h"
-#include "lib/utility/ob_smart_call.h"
-#include "lib/stat/ob_diagnostic_info_guard.h"
-#include "sql/resolver/cmd/ob_alter_system_resolver.h"
-#include "sql/resolver/dml/ob_insert_resolver.h"
-#include "sql/resolver/dml/ob_update_resolver.h"
-#include "sql/resolver/dml/ob_delete_resolver.h"
-#include "sql/resolver/tcl/ob_start_trans_resolver.h"
-#include "sql/resolver/tcl/ob_end_trans_resolver.h"
-#include "sql/resolver/prepare/ob_prepare_resolver.h"
-#include "sql/resolver/prepare/ob_execute_resolver.h"
-#include "sql/resolver/prepare/ob_deallocate_resolver.h"
-#include "sql/resolver/ddl/ob_create_table_resolver.h"
-#include "sql/resolver/ddl/ob_rename_table_resolver.h"
-#include "sql/resolver/ddl/ob_truncate_table_resolver.h"
-#include "sql/resolver/ddl/ob_fork_table_resolver.h"
-#include "sql/resolver/ddl/ob_fork_database_resolver.h"
-#include "sql/resolver/ddl/ob_create_table_like_resolver.h"
-#include "sql/resolver/ddl/ob_alter_table_resolver.h"
-#include "sql/resolver/ddl/ob_drop_table_resolver.h"
-#include "sql/resolver/ddl/ob_create_index_resolver.h"
-#include "sql/resolver/ddl/ob_drop_index_resolver.h"
-#include "sql/resolver/ddl/ob_create_database_resolver.h"
-#include "sql/resolver/ddl/ob_alter_database_resolver.h"
-#include "sql/resolver/ddl/ob_use_database_resolver.h"
-#include "sql/resolver/ddl/ob_drop_database_resolver.h"
-#include "sql/resolver/ddl/ob_create_view_resolver.h"
-#include "sql/resolver/ddl/ob_explain_resolver.h"
-#include "sql/resolver/ddl/ob_create_outline_resolver.h"
-#include "sql/resolver/ddl/ob_alter_outline_resolver.h"
-#include "sql/resolver/ddl/ob_drop_outline_resolver.h"
-#include "sql/resolver/ddl/ob_drop_routine_resolver.h"
-#include "sql/resolver/ddl/ob_trigger_resolver.h"
-#include "sql/resolver/ddl/ob_optimize_resolver.h"
-#include "ddl/ob_drop_routine_resolver.h"
 #include "ddl/ob_alter_routine_resolver.h"
-#include "sql/resolver/ddl/ob_create_package_resolver.h"
-#include "sql/resolver/ddl/ob_drop_package_resolver.h"
-#include "sql/resolver/ddl/ob_recyclebin_restore_resolver.h"
-#include "sql/resolver/ddl/ob_purge_resolver.h"
-#include "sql/resolver/ddl/ob_analyze_stmt_resolver.h"
-#include "sql/resolver/ddl/ob_purge_resolver.h"
-#include "sql/resolver/ddl/ob_set_comment_resolver.h"
-#include "sql/resolver/ddl/ob_lock_table_resolver.h"
-#include "sql/resolver/dml/ob_insert_resolver.h"
-#include "sql/resolver/dml/ob_update_resolver.h"
-#include "sql/resolver/dml/ob_delete_resolver.h"
-#include "sql/resolver/dcl/ob_create_user_resolver.h"
-#include "sql/resolver/dcl/ob_drop_user_resolver.h"
-#include "sql/resolver/dcl/ob_rename_user_resolver.h"
-#include "sql/resolver/dcl/ob_set_password_resolver.h"
-#include "sql/resolver/dcl/ob_lock_user_resolver.h"
-#include "sql/resolver/dcl/ob_grant_resolver.h"
-#include "sql/resolver/dcl/ob_revoke_resolver.h"
-#include "sql/resolver/dcl/ob_create_role_resolver.h"
-#include "sql/resolver/dcl/ob_drop_role_resolver.h"
-#include "sql/resolver/dcl/ob_alter_user_role_resolver.h"
-#include "sql/resolver/tcl/ob_start_trans_resolver.h"
-#include "sql/resolver/tcl/ob_end_trans_resolver.h"
-#include "tcl/ob_savepoint_resolver.h"
-#include "sql/resolver/cmd/ob_variable_set_resolver.h"
-#include "sql/resolver/cmd/ob_show_resolver.h"
-#include "sql/resolver/cmd/ob_diff_table_resolver.h"
-#include "sql/resolver/cmd/ob_merge_table_resolver.h"
-#include "sql/resolver/cmd/ob_kill_resolver.h"
-#include "sql/resolver/cmd/ob_set_names_resolver.h"
-#include "sql/resolver/cmd/ob_set_transaction_resolver.h"
-#include "sql/resolver/cmd/ob_empty_query_resolver.h"
+#include "ddl/ob_drop_routine_resolver.h"
+#include "lib/stat/ob_diagnostic_info_guard.h"
+#include "lib/utility/ob_smart_call.h"
+#include "sql/engine/basic/ob_file_scan_utils.h"
+#include "sql/parser/ob_parser.h"
+#include "sql/pl/ob_pl_package.h"
+#include "sql/resolver/cmd/ob_alter_system_resolver.h"
 #include "sql/resolver/cmd/ob_anonymous_block_resolver.h"
 #include "sql/resolver/cmd/ob_call_procedure_resolver.h"
-#include "sql/resolver/cmd/ob_load_data_resolver.h"
-#include "sql/resolver/prepare/ob_execute_resolver.h"
-#include "sql/resolver/prepare/ob_deallocate_resolver.h"
-#include "sql/resolver/ddl/ob_purge_resolver.h"
-#include "sql/resolver/ddl/ob_set_comment_resolver.h"
-#include "sql/resolver/expr/ob_raw_expr_wrap_enum_set.h"
+#include "sql/resolver/cmd/ob_diff_table_resolver.h"
+#include "sql/resolver/cmd/ob_empty_query_resolver.h"
 #include "sql/resolver/cmd/ob_get_diagnostics_resolver.h"
+#include "sql/resolver/cmd/ob_kill_resolver.h"
+#include "sql/resolver/cmd/ob_load_data_resolver.h"
+#include "sql/resolver/cmd/ob_merge_table_resolver.h"
+#include "sql/resolver/cmd/ob_set_names_resolver.h"
+#include "sql/resolver/cmd/ob_set_transaction_resolver.h"
+#include "sql/resolver/cmd/ob_show_resolver.h"
+#include "sql/resolver/cmd/ob_variable_set_resolver.h"
 #include "sql/resolver/dcl/ob_alter_role_resolver.h"
-#include "sql/pl/ob_pl_package.h"
+#include "sql/resolver/dcl/ob_alter_user_role_resolver.h"
+#include "sql/resolver/dcl/ob_create_role_resolver.h"
+#include "sql/resolver/dcl/ob_create_user_resolver.h"
+#include "sql/resolver/dcl/ob_drop_role_resolver.h"
+#include "sql/resolver/dcl/ob_drop_user_resolver.h"
+#include "sql/resolver/dcl/ob_grant_resolver.h"
+#include "sql/resolver/dcl/ob_lock_user_resolver.h"
+#include "sql/resolver/dcl/ob_rename_user_resolver.h"
+#include "sql/resolver/dcl/ob_revoke_resolver.h"
+#include "sql/resolver/dcl/ob_set_password_resolver.h"
+#include "sql/resolver/ddl/ob_alter_database_resolver.h"
+#include "sql/resolver/ddl/ob_alter_outline_resolver.h"
+#include "sql/resolver/ddl/ob_alter_table_resolver.h"
+#include "sql/resolver/ddl/ob_analyze_stmt_resolver.h"
+#include "sql/resolver/ddl/ob_create_database_resolver.h"
+#include "sql/resolver/ddl/ob_create_index_resolver.h"
+#include "sql/resolver/ddl/ob_create_outline_resolver.h"
+#include "sql/resolver/ddl/ob_create_package_resolver.h"
+#include "sql/resolver/ddl/ob_create_table_like_resolver.h"
+#include "sql/resolver/ddl/ob_create_table_resolver.h"
+#include "sql/resolver/ddl/ob_create_view_resolver.h"
+#include "sql/resolver/ddl/ob_drop_database_resolver.h"
+#include "sql/resolver/ddl/ob_drop_index_resolver.h"
+#include "sql/resolver/ddl/ob_drop_outline_resolver.h"
+#include "sql/resolver/ddl/ob_drop_package_resolver.h"
+#include "sql/resolver/ddl/ob_drop_routine_resolver.h"
+#include "sql/resolver/ddl/ob_drop_table_resolver.h"
+#include "sql/resolver/ddl/ob_explain_resolver.h"
+#include "sql/resolver/ddl/ob_fork_database_resolver.h"
+#include "sql/resolver/ddl/ob_fork_table_resolver.h"
+#include "sql/resolver/ddl/ob_lock_table_resolver.h"
+#include "sql/resolver/ddl/ob_optimize_resolver.h"
+#include "sql/resolver/ddl/ob_purge_resolver.h"
+#include "sql/resolver/ddl/ob_recyclebin_restore_resolver.h"
+#include "sql/resolver/ddl/ob_rename_table_resolver.h"
+#include "sql/resolver/ddl/ob_set_comment_resolver.h"
+#include "sql/resolver/ddl/ob_trigger_resolver.h"
+#include "sql/resolver/ddl/ob_truncate_table_resolver.h"
+#include "sql/resolver/ddl/ob_use_database_resolver.h"
+#include "sql/resolver/dml/ob_delete_resolver.h"
+#include "sql/resolver/dml/ob_insert_resolver.h"
+#include "sql/resolver/dml/ob_update_resolver.h"
+#include "sql/resolver/expr/ob_raw_expr_wrap_enum_set.h"
+#include "sql/resolver/prepare/ob_deallocate_resolver.h"
+#include "sql/resolver/prepare/ob_execute_resolver.h"
+#include "sql/resolver/prepare/ob_prepare_resolver.h"
+#include "sql/resolver/tcl/ob_end_trans_resolver.h"
+#include "sql/resolver/tcl/ob_start_trans_resolver.h"
+#include "tcl/ob_savepoint_resolver.h"
 
 namespace oceanbase
 {
@@ -101,6 +93,20 @@ using namespace common;
 using namespace share;
 namespace sql
 {
+static bool contains_file_table(const ParseNode &tree) {
+  std::vector<const ParseNode *> todo{&tree};
+  while (!todo.empty()) {
+    const ParseNode *p = todo.back();
+    todo.pop_back();
+    if (p->type_ == T_FILE_TABLE_EXPRESSION)
+      return true;
+    for (int i = 0; i < p->num_child_; ++i)
+      if (p->children_[i] != nullptr)
+        todo.push_back(p->children_[i]);
+  }
+  return false;
+}
+
 ObResolver::ObResolver(ObResolverParams &params)
     : params_(params)
 {
@@ -161,6 +167,58 @@ int ObResolver::resolve(IsPrepared if_prepared, const ParseNode &parse_tree, ObS
     ret = OB_NOT_INIT;
   } else {
     real_parse_tree = &parse_tree;
+  }
+
+  if (OB_SUCC(ret) && parse_tree.type_ == T_EXPLAIN &&
+      parse_tree.is_file_describe_ && contains_file_table(parse_tree) &&
+      parse_tree.num_child_ == 5 && parse_tree.children_[4] != nullptr &&
+      parse_tree.children_[4]->type_ == T_SELECT) {
+    ObSelectResolver child(params_);
+    if (OB_FAIL(child.resolve(*parse_tree.children_[4])))
+      return ret;
+    ObSelectStmt *source = child.get_select_stmt();
+    if (source == nullptr)
+      return OB_ERR_UNEXPECTED;
+    std::string query;
+    auto literal = [](const ObString &v) {
+      std::string out = "CONVERT(X'";
+      const char *hex = "0123456789abcdef";
+      for (int i = 0; i < v.length(); ++i) {
+        unsigned char c = v.ptr()[i];
+        out += hex[c >> 4];
+        out += hex[c & 15];
+      }
+      return out + "' USING utf8mb4)";
+    };
+    for (int64_t i = 0; i < source->get_select_item_size(); ++i) {
+      const SelectItem &s = source->get_select_item(i);
+      const auto &type = s.expr_->get_result_type();
+      const char *name = type.get_type() == ObNullType       ? "NULL"
+                         : type.get_type() == ObIntType      ? "BIGINT"
+                         : type.get_type() == ObDoubleType   ? "DOUBLE"
+                         : type.get_type() == ObTinyIntType  ? "BOOLEAN"
+                         : type.get_type() == ObDateType     ? "DATE"
+                         : type.get_type() == ObDateTimeType ? "DATETIME"
+                                                             : "VARCHAR";
+      if (i > 0)
+        query += " UNION ALL ";
+      ObString col = s.alias_name_.empty() ? s.expr_name_ : s.alias_name_;
+      query += "SELECT " + literal(col) + " AS column_name, '" + name +
+               "' AS column_type, '" +
+               (type.has_result_flag(NOT_NULL_FLAG) ? "NO" : "YES") +
+               "' AS `null`, NULL AS `key`, NULL AS `default`, NULL AS extra";
+    }
+    if (query.empty())
+      return OB_ERR_UNEXPECTED;
+    ObParser parser(*params_.allocator_, params_.session_info_->get_sql_mode(),
+                    params_.session_info_->get_charsets4parser());
+    ParseResult parsed;
+    if (OB_FAIL(parser.parse(ObString(query.size(), query.data()), parsed)))
+      return ret;
+    if (parsed.result_tree_ == nullptr || parsed.result_tree_->num_child_ != 1)
+      return OB_ERR_UNEXPECTED;
+    params_.query_ctx_->has_file_sql_ = true;
+    return resolve(if_prepared, *parsed.result_tree_->children_[0], stmt);
   }
 
   if (OB_SUCC(ret)) {
