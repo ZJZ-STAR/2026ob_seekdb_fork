@@ -6,7 +6,7 @@ competition CMake toolchain and libraries to compile and run them.
 
 `mock_ai_service.py` provides deterministic HTTP responses, reverses OpenAI
 embedding records, records requests, and supports fault routes.
-`test_ai_functions.py` runs 87 SQL integration cases. `run_mysqltests.py` runs
+`test_ai_functions.py` runs 90 SQL integration cases. `run_mysqltests.py` runs
 the existing `ai_function_enhancement.test` and `ai_prompt.test` cases.
 
 School-server commands:

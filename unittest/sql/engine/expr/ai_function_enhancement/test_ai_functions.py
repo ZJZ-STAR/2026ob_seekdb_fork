@@ -2,6 +2,7 @@
 """SQL integration regression tests against the school-server kernel build."""
 import json
 import traceback
+import uuid
 from pathlib import Path
 import pymysql
 from mock_ai_service import vector
@@ -138,7 +139,7 @@ def batch_test(where='', limit='', dimensions='7', nested=False):
         check((json.loads(value) if value is not None and not nested else value) == target, 'row mapping: %d' % id)
     requests = events()[before:]
     check(all(None not in request['body']['input'] and len(request['body']['input']) <= 64 for request in requests))
-    if not nested and not limit:
+    if not limit:
         check(any(len(request['body']['input']) > 1 for request in requests), 'cross-row requests were not batched')
     (OUT / ('batch-%s%s%s.json' % (dimensions, '-filtered' if where else '', '-nested' if nested else ''))).write_text(json.dumps(
         {'returned_rows': len(actual), 'requests': len(requests), 'request_sizes': [len(x['body']['input']) for x in requests]}, indent=2))
@@ -229,8 +230,10 @@ for mode in ['wrong-type', 'missing', 'count', 'bad-element', 'dimension']:
     case('ollama rejects embedding response ' + mode, ollama_fault)
 route('reg_ollama_embed', '/api/embed')
 def successful_retry():
-    route('reg_complete', '/fault/retry-once/chat/completions')
+    route('reg_complete', '/fault/retry-once/' + uuid.uuid4().hex + '/chat/completions')
+    before = len(events())
     check(one("select ai_complete('reg_complete','recovered')") == 'recovered')
+    check(len(events()) - before == 2)
     route('reg_complete', '/v1/chat/completions')
 case('HTTP retry discards the previous error body', successful_retry)
 def permanent_http_error():
@@ -239,6 +242,20 @@ def permanent_http_error():
     route('reg_embed', '/v1/embeddings')
     check(json.loads(one("select ai_embed('reg_embed','after-error',7)")) == vector('after-error', 7))
 case('HTTP permanent failure and next-query recovery', permanent_http_error)
+
+def json_length_documents():
+    sql('drop table if exists json_length_test')
+    sql('create table json_length_test(id int primary key, doc longtext, path varchar(40))')
+    documents = [(1,'[1,2,3]','$'),(2,'{"a":[1,2],"b":4}','$.a'),
+                 (3,None,'$'),(4,'[1]',None),(5,'{}','$.missing'),
+                 (6,'true','$'),(7,'"hello"','$')]
+    cursor.executemany('insert into json_length_test values(%s,%s,%s)', documents)
+    expected = [(id,one('select json_length(%s,%s)',(doc,path))) for id,doc,path in documents]
+    check(sql('select id,json_length(doc,path) from json_length_test order by id') == tuple(expected))
+    check(sql('select id,json_length(doc) from json_length_test where id < 3 order by id') == ((1,3),(2,2)))
+case('ordinary JSON_LENGTH batch matches scalar paths and NULL', json_length_documents)
+case('ordinary JSON_LENGTH invalid JSON still errors', lambda: fail("select json_length('invalid')"))
+case('ordinary JSON_LENGTH invalid path still errors', lambda: fail("select json_length('[1]','invalid')"))
 
 report = {'cases': len(results), 'passed': sum(x['passed'] for x in results), 'results': results}
 (OUT / 'integration-summary.json').write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
