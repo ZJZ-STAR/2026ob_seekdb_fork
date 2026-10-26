@@ -141,6 +141,12 @@ int assign(const ObColumnSchemaV2 &src_schema);
   inline int set_column_name(const common::ObString &col_name) { return deep_copy_str(col_name, column_name_); }
   inline int set_comment(const char *comment) { return deep_copy_str(comment, comment_); }
   inline int set_comment(const common::ObString &comment) { return deep_copy_str(comment, comment_); }
+  inline bool is_ai_column() const { return !ai_column_info_.empty(); }
+  inline const common::ObString &get_ai_column_info() const { return ai_column_info_; }
+  inline int set_ai_column_info(const common::ObString &info) { return deep_copy_str(info, ai_column_info_); }
+  // Versioned, length-independent metadata: version|retries|state|request|spec|dependencies|expression.
+  common::ObString get_ai_column_field(int index) const;
+  int64_t get_ai_column_number(int index) const;
   inline void set_on_update_current_timestamp(const bool is_on_update_for_timestamp) { on_update_current_timestamp_ = is_on_update_for_timestamp; }
   int set_extended_type_info(const common::ObIArray<common::ObString> &info);
   int add_type_info(const common::ObString &type_info);
@@ -380,6 +386,7 @@ private:
   common::ObObj cur_default_value_; //collation must be same with the column
   common::ObString column_name_;
   common::ObString comment_;
+  common::ObString ai_column_info_;
   common::ObArrayHelper<common::ObString> extended_type_info_;//used for enum and set
   uint64_t prev_column_id_;
   uint64_t next_column_id_;

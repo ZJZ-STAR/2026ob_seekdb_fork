@@ -1836,6 +1836,12 @@ int ObDMLResolver::resolve_basic_column_item(const TableItem &table_item,
   ObColumnRefRawExpr *col_expr = NULL;
   ObSchemaGetterGuard *schema_guard = NULL;
   ColumnItem column_item;
+  include_hidden = include_hidden || params_.query_ctx_->is_ai_column_retry_;
+  if (session_info_ != nullptr && session_info_->is_inner()) {
+    ObExecContext *parent = session_info_->get_cur_exec_ctx();
+    include_hidden |= !session_info_->is_user_session() ||
+      (parent != nullptr && parent->get_das_ctx().is_ai_column_nested_sql_);
+  }
   if (NULL == stmt) {
     stmt = get_stmt();
   }
@@ -1958,6 +1964,20 @@ int ObDMLResolver::resolve_basic_column_item(const TableItem &table_item,
       } else {
         col_item = stmt->get_column_item(stmt->get_column_size() - 1);
       }
+    }
+  }
+  if (OB_SUCC(ret) && !include_hidden && col_item != nullptr &&
+      !(session_info_->is_inner() && !session_info_->is_user_session())) {
+    const ObTableSchema *table = nullptr;
+    OZ(schema_checker_->get_table_schema(table_item.ref_id_, table));
+    const auto *column = OB_SUCC(ret) && table != nullptr ? table->get_column_schema(col_item->column_id_) : nullptr;
+    if (column != nullptr && column->is_ai_column()) {
+      auto &refs = params_.query_ctx_->ai_column_refs_;
+      bool exists = false;
+      for (int64_t i = 0; i + 1 < refs.count(); i += 2) {
+        exists |= refs.at(i) == table->get_table_id() && refs.at(i + 1) == column->get_column_id();
+      }
+      if (!exists) { OZ(refs.push_back(table->get_table_id())); OZ(refs.push_back(column->get_column_id())); }
     }
   }
   return ret;
@@ -10669,7 +10689,18 @@ int ObDMLResolver::resolve_basic_table(const ParseNode &parse_tree, TableItem *&
   } else if (OB_FAIL(resolve_basic_table_without_cte(parse_tree, table_item))) {
   }
 
-
+  if (OB_SUCC(ret) && table_item != nullptr && table_item->is_basic_table() && !stmt->is_select_stmt()) {
+    const ObTableSchema *table = nullptr;
+    OZ(schema_checker_->get_table_schema(table_item->ref_id_, table));
+    if (OB_SUCC(ret) && table != nullptr) {
+      for (int64_t i = 0; i < table->get_column_count(); ++i) {
+        if (table->get_column_schema_by_idx(i)->is_ai_column()) {
+          params_.query_ctx_->set_has_nested_sql(true);
+          break;
+        }
+      }
+    }
+  }
   return ret;
 }
 

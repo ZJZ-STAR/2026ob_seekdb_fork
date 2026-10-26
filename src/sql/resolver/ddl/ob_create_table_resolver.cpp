@@ -15,6 +15,7 @@
  */
 
 #define USING_LOG_PREFIX SQL_RESV
+#include "sql/resolver/ddl/ob_ai_column_ddl.h"
 #include "sql/resolver/ddl/ob_create_table_resolver.h"
 #include "sql/resolver/dml/ob_select_resolver.h"
 #include "sql/resolver/ddl/ob_fts_index_builder_util.h"
@@ -932,6 +933,19 @@ int ObCreateTableResolver::resolve_table_elements(const ParseNode *node,
       } else if (OB_FAIL(resolve_primary_key_node(*primary_node, stats))) {
       }
       if (OB_SUCC(ret)) {
+        ObArray<ObColumnSchemaV2> ai_hidden;
+        for (int32_t a = 0; OB_SUCC(ret) && a < node->num_child_; ++a) {
+          const ParseNode *def = node->children_[a];
+          if (def != nullptr && def->type_ == T_COLUMN_DEFINITION && def->num_child_ == 6) {
+            const ParseNode *name = def->children_[0]->children_[2];
+            ObColumnSchemaV2 *col = table_schema.get_column_schema(AiColumnDDL::str(name));
+            if (col == nullptr) { ret = OB_ERR_UNEXPECTED; }
+            else { ret = AiColumnDDL::finalize(*col, def->children_[4], table_schema, cur_column_id_, ai_hidden); }
+          }
+        }
+        for (int64_t a = 0; OB_SUCC(ret) && a < ai_hidden.count(); ++a) {
+          ret = table_schema.add_column(ai_hidden.at(a));
+        }
         table_schema.set_max_used_column_id(cur_column_id_);
         if (0 != autoinc_column_id) {
           table_schema.set_autoinc_column_id(autoinc_column_id);

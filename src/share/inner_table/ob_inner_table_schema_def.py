@@ -342,7 +342,8 @@ all_column_def = dict(
       ('sub_data_type', 'int', 'false', '0'),
       ('skip_index_attr', 'int', 'false', '0'),
       ('lob_chunk_size', 'int', 'false', 'OB_DEFAULT_LOB_CHUNK_SIZE'),
-      ('local_session_vars', 'longtext', 'true')
+      ('local_session_vars', 'longtext', 'true'),
+      ('ai_column_info', 'longtext', 'true')
   ]
   )
 
@@ -2445,6 +2446,36 @@ all_ai_model_endpoint_def = dict(
     ]
 )
 def_table_schema(**all_ai_model_endpoint_def)
+
+
+def_table_schema(
+    owner='ZJZ-STAR', table_name='__all_ai_column_task', table_id='1131',
+    table_type='SYSTEM_TABLE', gm_columns=['gmt_create', 'gmt_modified'],
+    is_cluster_private=False, meta_record_in_sys=False,
+    rowkey_columns=[('table_id', 'int'), ('request_id', 'varchar:64'), ('column_id', 'int')],
+    normal_columns=[
+      ('schema_version', 'int', 'false'),
+      ('rowkey_predicate', 'varchar:4096', 'false'),
+      ('database_name', 'varchar:128', 'false'),
+      ('table_name', 'varchar:128', 'false'),
+      ('column_name', 'varchar:128', 'false'),
+      ('expression', 'longtext', 'false'),
+      ('result_type', 'varchar:256', 'false'),
+      ('state_column_name', 'varchar:128', 'false'),
+      ('request_column_name', 'varchar:128', 'false'),
+      ('definition', 'longtext', 'false'),
+      ('task_state', 'int', 'false', '0'),
+      ('state', 'int', 'false', '0'),
+      ('retry_count', 'int', 'false', '0'),
+      ('attempt', 'int', 'false', '0'),
+      ('max_retries', 'int', 'false', '3'),
+      ('eligible_ts', 'timestamp:6', 'false'),
+      ('lease_until', 'timestamp:6', 'true'),
+      ('owner', 'varchar:64', 'true'),
+      ('result_value', 'longtext', 'true'),
+      ('last_error', 'int', 'true')
+    ])
+
 
 
 all_objauth_mysql_def = dict(
@@ -13865,6 +13896,22 @@ def_table_schema(
     FROM oceanbase.__all_virtual_change_stream_refresh_stat
   """.replace("\n", " ")
 )
+
+def_table_schema(
+    owner='ZJZ-STAR', table_name='__all_ai_column', table_id='21669',
+    table_type='SYSTEM_VIEW', rowkey_columns=[], normal_columns=[], gm_columns=[],
+    view_definition="""
+      SELECT table_id, column_id, column_name,
+        CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(ai_column_info, '|', 2), '|', -1) AS SIGNED) AS max_retries,
+        CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(ai_column_info, '|', 3), '|', -1) AS UNSIGNED) AS state_column_id,
+        CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(ai_column_info, '|', 4), '|', -1) AS UNSIGNED) AS request_column_id,
+        CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(ai_column_info, '|', 5), '|', -1) AS UNSIGNED) AS result_spec_column_id,
+        SUBSTRING_INDEX(SUBSTRING_INDEX(ai_column_info, '|', 6), '|', -1) AS dependencies,
+        SUBSTRING(ai_column_info, LENGTH(SUBSTRING_INDEX(ai_column_info, '|', 6)) + 2) AS normalized_expr,
+        'async' AS sync_mode, schema_version AS definition_version
+      FROM oceanbase.__all_column WHERE ai_column_info IS NOT NULL AND ai_column_info <> ''
+    """.replace('\n', ' '))
+
 
 # Reserved position (placeholder before this line)
 # Placeholder suggestion for this section: Use the actual view name for placeholder

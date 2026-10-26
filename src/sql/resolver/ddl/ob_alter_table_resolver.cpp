@@ -15,6 +15,7 @@
  */
 
 #define USING_LOG_PREFIX SQL_RESV
+#include "sql/resolver/ddl/ob_ai_column_ddl.h"
 #include "config_bridge.h"
 #include "sql/resolver/ddl/ob_alter_table_resolver.h"
 #include "sql/resolver/expr/ob_raw_expr_part_expr_checker.h"
@@ -3455,8 +3456,28 @@ int ObAlterTableResolver::resolve_add_column(const ParseNode &node, ObColumnName
 
         //add column
         if (OB_SUCC(ret)) {
-          if (OB_FAIL(alter_table_stmt->add_column(alter_column_schema))) {
+          ObArray<ObColumnSchemaV2> ai_hidden;
+          if (alter_column_schema.is_ai_column()) {
+            uint64_t next_id = table_schema_->get_max_used_column_id() +
+              alter_table_stmt->get_alter_table_schema().get_column_count() + 1;
+            alter_column_schema.set_column_id(next_id);
+            ObTableSchema check_table;
+            if (OB_FAIL(check_table.assign(*table_schema_))) {}
+            else if (OB_FAIL(check_table.add_column(alter_column_schema))) {}
+            else { ret = AiColumnDDL::finalize(alter_column_schema, node.children_[i]->children_[4],
+                                               check_table, next_id, ai_hidden); }
+          }
+          if (OB_FAIL(ret)) {
+          } else if (OB_FAIL(alter_table_stmt->add_column(alter_column_schema))) {
           } else if (FALSE_IT(alter_table_stmt->set_sql_mode(session_info_->get_sql_mode()))) {
+          }
+          for (int64_t h = 0; OB_SUCC(ret) && h < ai_hidden.count(); ++h) {
+            AlterColumnSchema hidden;
+            if (OB_FAIL(hidden.assign(ai_hidden.at(h)))) {}
+            else {
+              hidden.alter_type_ = OB_DDL_ADD_COLUMN;
+              ret = alter_table_stmt->add_column(hidden);
+            }
           }
         }
       }
@@ -3531,6 +3552,17 @@ int ObAlterTableResolver::resolve_alter_table_column_definition(AlterColumnSchem
               allow_has_default))) {
   } else { // add column level constraint
     add_or_modify_check_cst_times_ += alter_table_schema.get_constraint_count() - cst_cnt;
+  }
+  if (OB_SUCC(ret) && column.is_ai_column() && column.alter_type_ != OB_DDL_ADD_COLUMN) {
+    const auto *original = table_schema_->get_column_schema(column.get_column_id());
+    if (original == nullptr || !original->is_ai_column()) {
+      ret = OB_NOT_SUPPORTED;
+      LOG_USER_ERROR(OB_NOT_SUPPORTED, "use ADD COLUMN to create an AI COLUMN");
+    } else {
+      uint64_t next_id = original->get_ai_column_number(2) - 1;
+      ObArray<ObColumnSchemaV2> existing_hidden;
+      ret = AiColumnDDL::finalize(column, node->children_[4], tmp_table_schema, next_id, existing_hidden);
+    }
   }
   // else if (OB_FAIL(process_default_value(stat, column))) {
   //   SQL_RESV_LOG(WARN, "failed to set default value", K(ret));

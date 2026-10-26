@@ -16,6 +16,7 @@
 
 #define USING_LOG_PREFIX SERVER_OMT
 #include "ob_ai_service.h"
+#include "observer/ai_service/ob_ai_column_scheduler.h"
 #include "observer/ai_service/ob_ai_service_executor.h"
 #include "sql/privilege_check/ob_ai_model_priv_util.h"
 #include "sql/session/ob_sql_session_info.h"
@@ -61,8 +62,14 @@ int ObAiService::init()
 
 void ObAiService::destroy()
 {
+  stop();
+  wait();
   is_inited_ = false;
 }
+
+int ObAiService::start() { return observer::AiColumnScheduler::instance().start_service(); }
+void ObAiService::stop() { observer::AiColumnScheduler::instance().stop(); }
+void ObAiService::wait() { observer::AiColumnScheduler::instance().wait(); }
 
 int ObAiService::get_ai_service_guard(ObAiServiceGuard &ai_service_guard)
 {

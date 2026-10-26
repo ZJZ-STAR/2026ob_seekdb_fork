@@ -422,6 +422,12 @@ SQL_COMPOSITION_HEADERS = [
 ]
 
 SQL_PRIVATE_HEADERS = [
+    "engine/ob_ai_column_nested_guard.h",
+    "ob_ai_column_strict_read.h",
+    "engine/dml/ob_ai_column_dml.h",
+    "resolver/ddl/ob_ai_column_ddl.h",
+    "resolver/ob_ai_column_command.h",
+
     "code_generator/ob_code_generator.h",
     "code_generator/ob_dml_cg_service.h",
     "code_generator/ob_static_engine_cg.h",

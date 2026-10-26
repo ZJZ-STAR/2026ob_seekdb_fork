@@ -159,7 +159,17 @@ int ObExprAIComplete::eval_ai_complete(const ObExpr &expr,
     } else {
       ObAIFuncModel model(temp_allocator, *info, *endpoint_info);
       ObString result;
-      if (OB_FAIL(model.call_completion(prompt, config, result))) {
+      ObString system_prompt;
+      if (config != nullptr && ctx.exec_ctx_.get_my_session()->is_inner() &&
+          !ctx.exec_ctx_.get_my_session()->is_user_session()) {
+        ObIJsonBase *contract = config->get_value("__seekdb_ai_column_contract");
+        if (contract != nullptr && contract->json_type() == ObJsonNodeType::J_STRING) {
+          system_prompt = static_cast<ObJsonString *>(contract)->get_str();
+          ret = config->remove("__seekdb_ai_column_contract");
+        }
+      }
+      if (OB_FAIL(ret)) {
+      } else if (OB_FAIL(model.call_completion(prompt, config, result, &system_prompt))) {
       } else if (OB_FAIL(ObAIFuncUtils::set_string_result(expr, ctx, res, result))) {
       }
     }
