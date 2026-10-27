@@ -5708,6 +5708,7 @@ int ObStaticEngineCG::set_properties_post(const ObLogPlan &log_plan, ObPhysicalP
     phy_plan.set_plan_type(log_plan.get_optimizer_context().get_phy_plan_type());
     phy_plan.set_location_type(log_plan.get_optimizer_context().get_location_type());
     phy_plan.set_param_count(log_plan.get_stmt()->get_pre_param_size());
+    OZ(phy_plan.set_ai_column_refs(exec_ctx->get_stmt_factory()->get_query_ctx()->ai_column_refs_));
     phy_plan.set_signature(log_plan.get_signature());
     phy_plan.set_plan_hash_value(log_plan.get_signature());
     phy_plan.set_stmt_type(log_plan.get_stmt()->get_stmt_type());

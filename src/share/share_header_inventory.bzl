@@ -1,6 +1,8 @@
 """Native public/private header ownership for the Share module."""
 
 SHARE_PUBLIC_HEADER_ROOTS = [
+    "ai_service/ob_ai_column_sql.h",
+
     "aggregate/ob_pushdown_aggregate_protocol.h",
     "ai_service/ob_ai_service_struct.h",
     "allocator/ob_reserve_arena.h",

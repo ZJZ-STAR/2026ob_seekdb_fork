@@ -549,6 +549,8 @@ public:
 
 struct ObQueryCtx
 {
+  common::ObSEArray<uint64_t, 8> ai_column_refs_;
+  bool is_ai_column_retry_ = false;
 public:
   ObQueryCtx()
     : question_marks_count_(0),

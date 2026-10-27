@@ -15,6 +15,8 @@
  */
 
 #define USING_LOG_PREFIX SQL_RESV
+#include "sql/resolver/ddl/ob_ai_column_ddl.h"
+#include "sql/engine/expr/ob_expr_ai/ob_ai_func_utils.h"
 #include "config_bridge.h"
 #include "ob_ddl_resolver.h"
 #include "data_plane/blocksstable/ob_index_block_util.h"
@@ -1872,6 +1874,19 @@ int ObDDLResolver::resolve_column_definition(ObColumnSchemaV2 &column,
       if (OB_SUCC(ret) && column.is_collection()) {
         if (OB_FAIL(resolve_collection_column(type_node, column))) {
         }
+      }
+    }
+  }
+  if (OB_SUCC(ret) && node->num_child_ == 6) {
+    ret = AiColumnDDL::define(column, *node);
+    if (OB_SUCC(ret)) {
+      ObAIFuncExprInfo *info = nullptr;
+      const ParseNode *model = node->children_[4]->children_[1]->children_[0];
+      OZ(ObAIFuncUtils::get_ai_func_info(*allocator_, AiColumnDDL::str(model),
+                                      *schema_checker_->get_schema_guard(), info));
+      if (OB_SUCC(ret)) {
+        ret = column.is_collection() ? ObAIFuncUtils::check_info_type_dense_embedding(info) :
+                                      ObAIFuncUtils::check_info_type_completion(info);
       }
     }
   }

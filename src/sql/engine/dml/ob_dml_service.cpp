@@ -15,6 +15,7 @@
  */
 
 #define USING_LOG_PREFIX SQL_ENG
+#include "sql/engine/dml/ob_ai_column_dml.h"
 #include "config_bridge.h"
 #include "sql/engine/dml/ob_dml_service.h"
 #include "sql/engine/expr/ob_datum_cast.h"
@@ -632,6 +633,7 @@ int ObDMLService::process_insert_row(const ObInsCtDef &ins_ctdef,
     }
 
   }
+  if (OB_SUCC(ret) && !is_skipped) { ret = AiColumnDML::prepare(ins_ctdef, dml_op, false); }
   return ret;
 }
 
@@ -730,6 +732,7 @@ int ObDMLService::process_delete_row(const ObDelCtDef &del_ctdef,
           dml_op, del_ctdef.das_base_ctdef_, del_ctdef.trig_ctdef_, del_rtdef.trig_rtdef_))) {
       }
     }
+    if (OB_SUCC(ret) && !is_skipped) { ret = AiColumnDML::prepare(del_ctdef, dml_op, true); }
     LOG_DEBUG("process delete row", K(ret), K(is_skipped),
                "old_row", ROWEXPR2STR(dml_op.get_eval_ctx(), del_ctdef.old_row_));
   }
@@ -800,6 +803,7 @@ int ObDMLService::process_update_row(const ObUpdCtDef &upd_ctdef,
                                         upd_ctdef.dupd_ctdef_.is_ignore_,
                                         false,
                                         dml_op))) {
+      } else if (OB_FAIL(AiColumnDML::prepare(upd_ctdef, dml_op, false))) {
       } else if (OB_FAIL(check_row_whether_changed(upd_ctdef, upd_rtdef, dml_op.get_eval_ctx()))) {
       } else if (OB_UNLIKELY(!upd_rtdef.is_row_changed_)) {
         //do nothing
