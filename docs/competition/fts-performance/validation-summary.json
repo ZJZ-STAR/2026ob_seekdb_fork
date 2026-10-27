@@ -1,0 +1,66 @@
+{
+  "build": "release CMake build passed",
+  "cpp_tests": 4,
+  "differential": {
+    "total": 1760,
+    "passed": 1760,
+    "failures": []
+  },
+  "membership": {
+    "total": 200,
+    "passed": 200
+  },
+  "plans": {
+    "total": 16,
+    "passed": 16
+  },
+  "mysqltest": [
+    {
+      "test": "tokenize_function",
+      "exit_code": 0,
+      "output": "ok\n"
+    },
+    {
+      "test": "parser_properties",
+      "exit_code": 0,
+      "output": "ok\n"
+    },
+    {
+      "test": "simple_query",
+      "exit_code": 0,
+      "output": "ok\n"
+    },
+    {
+      "test": "score_elision",
+      "exit_code": 0,
+      "output": "ok\n"
+    },
+    {
+      "test": "cn_word",
+      "exit_code": 0,
+      "output": "ok\n"
+    }
+  ],
+  "baseline_mysqltest": [
+    {
+      "test": "parser_properties",
+      "exit_code": 0,
+      "output": "ok\n"
+    },
+    {
+      "test": "basic_dml",
+      "exit_code": 1,
+      "output": "[2026-10-27 12:43:15] mysqltest: At line 1598: query 'SELECT column_name, is_hidden FROM oceanbase.__all_column WHERE table_id = $rowkey_doc_table_id' failed: 1064: You have an error in your SQL syntax; check the manual that corresponds to your OceanBase version for the right syntax to use near 'such row' at line 1\nnot ok\n"
+    },
+    {
+      "test": "create_fts_index_afterward",
+      "exit_code": 0,
+      "output": "ok\n"
+    },
+    {
+      "test": "create_table_with_fts_index",
+      "exit_code": 0,
+      "output": "ok\n"
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+[
+  {
+    "label": "paired-before-1",
+    "shutdown_returncode": 0,
+    "report": "/home/PeterPan/2026ob/results/fts-performance/paired-before-1.txt"
+  },
+  {
+    "label": "paired-after-1",
+    "shutdown_returncode": 0,
+    "report": "/home/PeterPan/2026ob/results/fts-performance/paired-after-1.txt"
+  },
+  {
+    "label": "paired-before-2",
+    "shutdown_returncode": 0,
+    "report": "/home/PeterPan/2026ob/results/fts-performance/paired-before-2.txt"
+  },
+  {
+    "label": "paired-after-2",
+    "shutdown_returncode": 0,
+    "report": "/home/PeterPan/2026ob/results/fts-performance/paired-after-2.txt"
+  }
+]

@@ -1,0 +1,102 @@
+{
+  "total": 16,
+  "passed": 16,
+  "results": [
+    {
+      "name": "count",
+      "passed": true,
+      "expected_calc_relevance": false,
+      "plan": "==================================================================\n|ID|OPERATOR             |NAME             |EST.ROWS|EST.TIME(us)|\n------------------------------------------------------------------\n|0 |SCALAR GROUP BY      |                 |1       |556512      |\n|1 |└─TEXT RETRIEVAL SCAN|docs(fti_en_beng)|12000   |556294      |\n==================================================================\nOutputs & filters:\n-------------------------------------\n  0 - output([T_FUN_COUNT(*)]), filter(nil), rowset=256\n      group(nil), agg_func([T_FUN_COUNT(*)])\n  1 - output(nil), filter(nil), rowset=256\n      access(nil), partitions(p0)\n      is_index_back=false, is_global_index=false, \n      calc_relevance=false, match_expr(MATCH(docs.title_en, docs.content_en) AGAINST('database performance'))"
+    },
+    {
+      "name": "implicit_score_order",
+      "passed": true,
+      "expected_calc_relevance": true,
+      "plan": "==================================================================\n|ID|OPERATOR             |NAME             |EST.ROWS|EST.TIME(us)|\n------------------------------------------------------------------\n|0 |SORT                 |                 |12000   |356066      |\n|1 |└─TEXT RETRIEVAL SCAN|docs(fti_en_beng)|12000   |350181      |\n==================================================================\nOutputs & filters:\n-------------------------------------\n  0 - output([docs.id]), filter(nil), rowset=256\n      sort_keys([MATCH(docs.title_en, docs.content_en) AGAINST('database performance'), DESC])\n  1 - output([docs.id], [MATCH(docs.title_en, docs.content_en) AGAINST('database performance')]), filter(nil), rowset=256\n      access([docs.id]), partitions(p0)\n      is_index_back=true, is_global_index=false, \n      calc_relevance=true, match_expr(MATCH(docs.title_en, docs.content_en) AGAINST('database performance')), \n      pushdown_match_filter(MATCH(docs.title_en, docs.content_en) AGAINST('database performance'))"
+    },
+    {
+      "name": "implicit_score_limit",
+      "passed": true,
+      "expected_calc_relevance": true,
+      "plan": "================================================================\n|ID|OPERATOR           |NAME             |EST.ROWS|EST.TIME(us)|\n----------------------------------------------------------------\n|0 |TEXT RETRIEVAL SCAN|docs(fti_en_beng)|12000   |350181      |\n================================================================\nOutputs & filters:\n-------------------------------------\n  0 - output([docs.id]), filter(nil), rowset=256\n      access([docs.id]), partitions(p0)\n      is_index_back=true, is_global_index=false, \n      calc_relevance=true, match_expr(MATCH(docs.title_en, docs.content_en) AGAINST('database performance')), \n      pushdown_match_filter(MATCH(docs.title_en, docs.content_en) AGAINST('database performance')), \n      sort_keys([MATCH(docs.title_en, docs.content_en) AGAINST('database performance'), DESC]), limit(20), offset(nil), with_ties(false)"
+    },
+    {
+      "name": "ids_explicit_order",
+      "passed": true,
+      "expected_calc_relevance": true,
+      "plan": "==================================================================\n|ID|OPERATOR             |NAME             |EST.ROWS|EST.TIME(us)|\n------------------------------------------------------------------\n|0 |SORT                 |                 |12000   |356066      |\n|1 |└─TEXT RETRIEVAL SCAN|docs(fti_en_beng)|12000   |350181      |\n==================================================================\nOutputs & filters:\n-------------------------------------\n  0 - output([docs.id]), filter(nil), rowset=256\n      sort_keys([docs.id, ASC])\n  1 - output([docs.id]), filter(nil), rowset=256\n      access([docs.id]), partitions(p0)\n      is_index_back=true, is_global_index=false, \n      calc_relevance=true, match_expr(MATCH(docs.title_en, docs.content_en) AGAINST('database performance')), \n      pushdown_match_filter(MATCH(docs.title_en, docs.content_en) AGAINST('database performance'))"
+    },
+    {
+      "name": "limit_explicit_order",
+      "passed": true,
+      "expected_calc_relevance": true,
+      "plan": "==================================================================\n|ID|OPERATOR             |NAME             |EST.ROWS|EST.TIME(us)|\n------------------------------------------------------------------\n|0 |TOP-N SORT           |                 |20      |350659      |\n|1 |└─TEXT RETRIEVAL SCAN|docs(fti_en_beng)|12000   |350181      |\n==================================================================\nOutputs & filters:\n-------------------------------------\n  0 - output([docs.id]), filter(nil), rowset=256\n      sort_keys([docs.id, ASC]), topn(20)\n  1 - output([docs.id]), filter([TOPN_FILTER(docs.id)]), rowset=256\n      access([docs.id]), partitions(p0)\n      is_index_back=true, is_global_index=false, filter_before_indexback[false], \n      calc_relevance=true, match_expr(MATCH(docs.title_en, docs.content_en) AGAINST('database performance')), \n      pushdown_match_filter(MATCH(docs.title_en, docs.content_en) AGAINST('database performance'))"
+    },
+    {
+      "name": "extra_filter",
+      "passed": true,
+      "expected_calc_relevance": true,
+      "plan": "==================================================================\n|ID|OPERATOR             |NAME             |EST.ROWS|EST.TIME(us)|\n------------------------------------------------------------------\n|0 |SORT                 |                 |1550    |95423       |\n|1 |└─TEXT RETRIEVAL SCAN|docs(fti_en_beng)|1550    |94715       |\n==================================================================\nOutputs & filters:\n-------------------------------------\n  0 - output([docs.id]), filter(nil), rowset=256\n      sort_keys([docs.id, ASC])\n  1 - output([docs.id]), filter([docs.id < 100]), rowset=256\n      access([docs.id]), partitions(p0)\n      is_index_back=true, is_global_index=false, filter_before_indexback[false], \n      calc_relevance=true, match_expr(MATCH(docs.title_en, docs.content_en) AGAINST('database performance')), \n      pushdown_match_filter(MATCH(docs.title_en, docs.content_en) AGAINST('database performance'))"
+    },
+    {
+      "name": "aggregate",
+      "passed": true,
+      "expected_calc_relevance": true,
+      "plan": "==================================================================\n|ID|OPERATOR             |NAME             |EST.ROWS|EST.TIME(us)|\n------------------------------------------------------------------\n|0 |HASH GROUP BY        |                 |5       |351374      |\n|1 |└─TEXT RETRIEVAL SCAN|docs(fti_en_beng)|12000   |350181      |\n==================================================================\nOutputs & filters:\n-------------------------------------\n  0 - output([docs.id % 5], [T_FUN_COUNT(*)]), filter(nil), rowset=256\n      group([docs.id % 5]), agg_func([T_FUN_COUNT(*)])\n  1 - output([docs.id]), filter(nil), rowset=256\n      access([docs.id]), partitions(p0)\n      is_index_back=true, is_global_index=false, \n      calc_relevance=true, match_expr(MATCH(docs.title_en, docs.content_en) AGAINST('database performance')), \n      pushdown_match_filter(MATCH(docs.title_en, docs.content_en) AGAINST('database performance'))"
+    },
+    {
+      "name": "project_score",
+      "passed": true,
+      "expected_calc_relevance": true,
+      "plan": "==================================================================\n|ID|OPERATOR             |NAME             |EST.ROWS|EST.TIME(us)|\n------------------------------------------------------------------\n|0 |SORT                 |                 |12000   |356066      |\n|1 |└─TEXT RETRIEVAL SCAN|docs(fti_en_beng)|12000   |350181      |\n==================================================================\nOutputs & filters:\n-------------------------------------\n  0 - output([docs.id], [MATCH(docs.title_en, docs.content_en) AGAINST('database performance')]), filter(nil), rowset=256\n      sort_keys([MATCH(docs.title_en, docs.content_en) AGAINST('database performance'), DESC])\n  1 - output([docs.id], [MATCH(docs.title_en, docs.content_en) AGAINST('database performance')]), filter(nil), rowset=256\n      access([docs.id]), partitions(p0)\n      is_index_back=true, is_global_index=false, \n      calc_relevance=true, match_expr(MATCH(docs.title_en, docs.content_en) AGAINST('database performance')), \n      pushdown_match_filter(MATCH(docs.title_en, docs.content_en) AGAINST('database performance'))"
+    },
+    {
+      "name": "project_boolean",
+      "passed": true,
+      "expected_calc_relevance": true,
+      "plan": "==================================================================\n|ID|OPERATOR             |NAME             |EST.ROWS|EST.TIME(us)|\n------------------------------------------------------------------\n|0 |SORT                 |                 |12000   |356066      |\n|1 |└─TEXT RETRIEVAL SCAN|docs(fti_en_beng)|12000   |350181      |\n==================================================================\nOutputs & filters:\n-------------------------------------\n  0 - output([docs.id], [MATCH(docs.title_en, docs.content_en) AGAINST('database performance') IS 1]), filter(nil), rowset=256\n      sort_keys([MATCH(docs.title_en, docs.content_en) AGAINST('database performance'), DESC])\n  1 - output([docs.id], [MATCH(docs.title_en, docs.content_en) AGAINST('database performance')]), filter(nil), rowset=256\n      access([docs.id]), partitions(p0)\n      is_index_back=true, is_global_index=false, \n      calc_relevance=true, match_expr(MATCH(docs.title_en, docs.content_en) AGAINST('database performance')), \n      pushdown_match_filter(MATCH(docs.title_en, docs.content_en) AGAINST('database performance'))"
+    },
+    {
+      "name": "order_score",
+      "passed": true,
+      "expected_calc_relevance": true,
+      "plan": "================================================================\n|ID|OPERATOR           |NAME             |EST.ROWS|EST.TIME(us)|\n----------------------------------------------------------------\n|0 |TEXT RETRIEVAL SCAN|docs(fti_en_beng)|12000   |350181      |\n================================================================\nOutputs & filters:\n-------------------------------------\n  0 - output([docs.id]), filter(nil), rowset=256\n      access([docs.id]), partitions(p0)\n      is_index_back=true, is_global_index=false, \n      calc_relevance=true, match_expr(MATCH(docs.title_en, docs.content_en) AGAINST('database performance')), \n      pushdown_match_filter(MATCH(docs.title_en, docs.content_en) AGAINST('database performance')), \n      sort_keys([MATCH(docs.title_en, docs.content_en) AGAINST('database performance'), DESC]), limit(20), offset(nil), with_ties(false)"
+    },
+    {
+      "name": "numeric_threshold",
+      "passed": true,
+      "expected_calc_relevance": true,
+      "plan": "=================================================\n|ID|OPERATOR         |NAME|EST.ROWS|EST.TIME(us)|\n-------------------------------------------------\n|0 |SORT             |    |6667    |2177121     |\n|1 |└─TABLE FULL SCAN|docs|6667    |2173916     |\n=================================================\nOutputs & filters:\n-------------------------------------\n  0 - output([docs.id]), filter(nil), rowset=256\n      sort_keys([MATCH(docs.title_en, docs.content_en) AGAINST('database performance'), DESC])\n  1 - output([docs.id], [MATCH(docs.title_en, docs.content_en) AGAINST('database performance')]), filter([MATCH(docs.title_en, docs.content_en) AGAINST('database \n      performance') > cast(0.25, DOUBLE(-1, -1))]), rowset=256\n      access([docs.id]), partitions(p0)\n      is_index_back=false, is_global_index=false, filter_before_indexback[false], \n      range_key([docs.id]), range(MIN ; MAX)always true, has_functional_lookup=true"
+    },
+    {
+      "name": "additional_threshold",
+      "passed": true,
+      "expected_calc_relevance": true,
+      "plan": "==================================================================\n|ID|OPERATOR             |NAME             |EST.ROWS|EST.TIME(us)|\n------------------------------------------------------------------\n|0 |SORT                 |                 |6667    |1716056     |\n|1 |└─TEXT RETRIEVAL SCAN|docs(fti_en_beng)|6667    |1712851     |\n==================================================================\nOutputs & filters:\n-------------------------------------\n  0 - output([docs.id]), filter(nil), rowset=256\n      sort_keys([MATCH(docs.title_en, docs.content_en) AGAINST('database performance'), DESC])\n  1 - output([docs.id], [MATCH(docs.title_en, docs.content_en) AGAINST('database performance')]), filter([MATCH(docs.title_en, docs.content_en) AGAINST('database \n      performance') > cast(0.25, DOUBLE(-1, -1))]), rowset=256\n      access([docs.id]), partitions(p0)\n      is_index_back=true, is_global_index=false, filter_before_indexback[false], \n      calc_relevance=true, match_expr(MATCH(docs.title_en, docs.content_en) AGAINST('database performance')), \n      pushdown_match_filter(MATCH(docs.title_en, docs.content_en) AGAINST('database performance'))"
+    },
+    {
+      "name": "score_aggregate",
+      "passed": true,
+      "expected_calc_relevance": true,
+      "plan": "==================================================================\n|ID|OPERATOR             |NAME             |EST.ROWS|EST.TIME(us)|\n------------------------------------------------------------------\n|0 |SCALAR GROUP BY      |                 |1       |556512      |\n|1 |└─TEXT RETRIEVAL SCAN|docs(fti_en_beng)|12000   |556294      |\n==================================================================\nOutputs & filters:\n-------------------------------------\n  0 - output([T_FUN_SUM(MATCH(docs.title_en, docs.content_en) AGAINST('database performance'))]), filter(nil), rowset=256\n      group(nil), agg_func([T_FUN_SUM(MATCH(docs.title_en, docs.content_en) AGAINST('database performance'))])\n  1 - output([MATCH(docs.title_en, docs.content_en) AGAINST('database performance')]), filter(nil), rowset=256\n      access(nil), partitions(p0)\n      is_index_back=false, is_global_index=false, \n      calc_relevance=true, match_expr(MATCH(docs.title_en, docs.content_en) AGAINST('database performance')), \n      pushdown_match_filter(MATCH(docs.title_en, docs.content_en) AGAINST('database performance'))"
+    },
+    {
+      "name": "score_having",
+      "passed": true,
+      "expected_calc_relevance": true,
+      "plan": "==================================================================\n|ID|OPERATOR             |NAME             |EST.ROWS|EST.TIME(us)|\n------------------------------------------------------------------\n|0 |HASH GROUP BY        |                 |600     |356888      |\n|1 |└─TEXT RETRIEVAL SCAN|docs(fti_en_beng)|12000   |350181      |\n==================================================================\nOutputs & filters:\n-------------------------------------\n  0 - output([docs.id]), filter([T_FUN_MAX(MATCH(docs.title_en, docs.content_en) AGAINST('database performance')) > cast(0.25, DOUBLE(-1, -1))]), rowset=256\n      group([docs.id]), agg_func([T_FUN_MAX(MATCH(docs.title_en, docs.content_en) AGAINST('database performance'))])\n  1 - output([docs.id], [MATCH(docs.title_en, docs.content_en) AGAINST('database performance')]), filter(nil), rowset=256\n      access([docs.id]), partitions(p0)\n      is_index_back=true, is_global_index=false, \n      calc_relevance=true, match_expr(MATCH(docs.title_en, docs.content_en) AGAINST('database performance')), \n      pushdown_match_filter(MATCH(docs.title_en, docs.content_en) AGAINST('database performance'))"
+    },
+    {
+      "name": "score_window",
+      "passed": true,
+      "expected_calc_relevance": true,
+      "plan": "====================================================================\n|ID|OPERATOR               |NAME             |EST.ROWS|EST.TIME(us)|\n--------------------------------------------------------------------\n|0 |WINDOW FUNCTION        |                 |12000   |367938      |\n|1 |└─SORT                 |                 |12000   |356066      |\n|2 |  └─TEXT RETRIEVAL SCAN|docs(fti_en_beng)|12000   |350181      |\n====================================================================\nOutputs & filters:\n-------------------------------------\n  0 - output([docs.id], [T_WIN_FUN_ROW_NUMBER()]), filter(nil), rowset=256\n      win_expr(T_WIN_FUN_ROW_NUMBER()), partition_by(nil), order_by([MATCH(docs.title_en, docs.content_en) AGAINST('database performance'), DESC]), window_type(RANGE),\n       upper(UNBOUNDED PRECEDING), lower(UNBOUNDED FOLLOWING)\n  1 - output([docs.id], [MATCH(docs.title_en, docs.content_en) AGAINST('database performance')]), filter(nil), rowset=256\n      sort_keys([MATCH(docs.title_en, docs.content_en) AGAINST('database performance'), DESC])\n  2 - output([docs.id], [MATCH(docs.title_en, docs.content_en) AGAINST('database performance')]), filter(nil), rowset=256\n      access([docs.id]), partitions(p0)\n      is_index_back=true, is_global_index=false, \n      calc_relevance=true, match_expr(MATCH(docs.title_en, docs.content_en) AGAINST('database performance')), \n      pushdown_match_filter(MATCH(docs.title_en, docs.content_en) AGAINST('database performance'))"
+    },
+    {
+      "name": "boolean_mode",
+      "passed": true,
+      "expected_calc_relevance": true,
+      "plan": "==================================================================\n|ID|OPERATOR             |NAME             |EST.ROWS|EST.TIME(us)|\n------------------------------------------------------------------\n|0 |SORT                 |                 |12000   |356066      |\n|1 |└─TEXT RETRIEVAL SCAN|docs(fti_en_beng)|12000   |350181      |\n==================================================================\nOutputs & filters:\n-------------------------------------\n  0 - output([docs.id]), filter(nil), rowset=256\n      sort_keys([MATCH(docs.title_en, docs.content_en) AGAINST('+database -audit' IN BOOLEAN MODE), DESC])\n  1 - output([docs.id], [MATCH(docs.title_en, docs.content_en) AGAINST('+database -audit' IN BOOLEAN MODE)]), filter(nil), rowset=256\n      access([docs.id]), partitions(p0)\n      is_index_back=true, is_global_index=false, \n      calc_relevance=true, match_expr(MATCH(docs.title_en, docs.content_en) AGAINST('+database -audit' IN BOOLEAN MODE)), \n      pushdown_match_filter(MATCH(docs.title_en, docs.content_en) AGAINST('+database -audit' IN BOOLEAN MODE))"
+    }
+  ]
+}

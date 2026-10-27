@@ -1,0 +1,30 @@
+{
+  "base_revision": "cb268d1ea3cb4c455fa8614e808c0d07b8b88fe4",
+  "binary_sha256": "17a452158a5aecb7e838eacf52c68ff4bac37b6b55a471f1c256872b972f7adb",
+  "files": {
+    "src/observer/composition/retrieval/ob_das_legacy_tr_merge_iter.cpp": "45492f57da02a10a4c14ccb570fee28232563eada5e4ef3c782da3f1d095015a",
+    "src/observer/ob_server.cpp": "028fdf82b0abe3f6fccd740f191ca0d7d39f9058b8168211e80f42546003c399",
+    "src/sql/code_generator/ob_tsc_cg_service.cpp": "fb42a48aa19b0cb5703247a1d3e879665c5d0b7f6022bcd3ae375ad1f416d97e",
+    "src/sql/das/iter/ob_das_iter_utils.cpp": "926c5c58d71612e6497ef4f3aff83c00050ff01d3d915a2ac7470716d96762fa",
+    "src/sql/optimizer/ob_log_plan.cpp": "86e688a69a1a6309422dbbe6777a10ed8052d213fa9875212e979887070f1e04",
+    "src/storage/fts/dict/ob_ft_dict_hub.cpp": "dff7a912c1511af14cd74b3cee2d3951e5e39fd502dd4a92d7f3b2bd0d20672a",
+    "src/storage/fts/dict/ob_ft_dict_hub.h": "f34ec14265129bd55a56b2834c9f195efd0701b78a08302dc3de3eab89434fba",
+    "src/storage/fts/ik/ob_ik_char_util.h": "058b13d4c97ca2c9a61c98537099e788e7cbede6bf3e93dba4c3ebedb76ec6c3",
+    "src/storage/fts/ob_ik_ft_parser.cpp": "741e42ae0b4f20a66034d4b6d6ca35543e69810624ff5b6cc6fe3d99e43b7f96",
+    "src/storage/fts/ob_ik_ft_parser.h": "deafba99f7886ce7cbc6a6ca14c138cbf28162173c0a8b573be03010aa2d3b3a",
+    "src/storage/retrieval/ob_sparse_taat_iter.cpp": "f6397e84eee0996825be7324b179d4ea20d4e4862ecfce26eb69fc94f2b420b9",
+    "src/storage/retrieval/ob_text_daat_iter.cpp": "ae14a0155dddf8c9dcddfe70dbbd1f125d22342052244751b29af58e5abc6143",
+    "src/storage/retrieval/ob_text_retrieval_token_iter.cpp": "0ec97facbad67ad91f7ad47e64dc568b2bc93bb0cd6d5646cecdbcb4d1e49ccc",
+    "src/storage/retrieval/ob_text_taat_iter.cpp": "97ae0fd56862d1491f3ac20bc42690749860b0cabf46c8315d8a608757d0b535",
+    "tools/deploy/mysql_test/test_suite/fts_index/r/mysql/score_elision.result": "9dc8b7903172018acd41be90dd139f3d864b6a03521ba10c6b2f987362bb1b65",
+    "tools/deploy/mysql_test/test_suite/fts_index/t/score_elision.test": "ffda3625b9854ce1075d3f1e0d5162070977d3b2297d25d8041191c551c86067",
+    "unittest/storage/fts/README.md": "7753e278f53666725a3d14a2b24b0850bb97162e9073fdf80c2d46c73f5afb6e",
+    "unittest/storage/fts/differential_regression.py": "dabfb092112dd0880eb5a4320007cdbffaf5d8938e11aec7c4046d2b03a8a792",
+    "unittest/storage/fts/membership_regression.py": "83c1383ce7f3c1a93307cba63bd392ffe3ea3739f241bb6b384b13b5ab246e27",
+    "unittest/storage/fts/plan_regression.py": "55bce0e931a33b99a62b544e9efcdbaedc0d8f928ac28dc726a4c21e69fd1718",
+    "unittest/storage/fts/run_cpp_tests.py": "0adacecb15e168b85ad6733c11ad29408adcdcbe940b63f03d1ad935298bfff3",
+    "unittest/storage/fts/run_mysqltests.py": "d30138d384f37178283cf3a515a8a071df5b4d4c06ec29deb67e331367036526",
+    "unittest/storage/fts/test_ik_char_util.cpp": "9e4a7e21fdb33fdeeb203c5025c37980588cd2432ce8e47a7d0d8e2ddc028b06"
+  },
+  "benchmark_unchanged": true
+}

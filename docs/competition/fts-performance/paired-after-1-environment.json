@@ -1,0 +1,27 @@
+{
+  "label": "paired-after-1",
+  "timestamp": "2026-10-27T15:47:23.060985+08:00",
+  "binary": "/home/PeterPan/2026ob/src/seekdb-ai-column/build_release/src/observer/seekdb",
+  "binary_sha256": "17a452158a5aecb7e838eacf52c68ff4bac37b6b55a471f1c256872b972f7adb",
+  "pid": 3501042,
+  "command": [
+    "/home/PeterPan/2026ob/src/seekdb-ai-column/build_release/src/observer/seekdb",
+    "--nodaemon",
+    "--base-dir=/home/PeterPan/2026ob/run/seekdb-fts-benchmark",
+    "--data-dir=/home/PeterPan/2026ob/data/seekdb-fts-benchmark",
+    "--redo-dir=/home/PeterPan/2026ob/data/seekdb-fts-benchmark/redo",
+    "--parameter=mysql_port_mode=random",
+    "--parameter=rpc_port=12904",
+    "--parameter=cpu_count=4",
+    "--parameter=memory_budget=4G",
+    "--parameter=datafile_maxsize=10G",
+    "--parameter=log_disk_size=2G",
+    ""
+  ],
+  "kernel": "5.15.0-67-generic",
+  "load_average": [
+    3.3,
+    4.12,
+    3.36
+  ]
+}

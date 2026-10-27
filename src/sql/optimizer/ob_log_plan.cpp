@@ -47,6 +47,7 @@
 #include "query/vector/ob_vector_index_util.h"
 #include "sql/optimizer/ob_log_expand.h"
 #include "sql/resolver/ddl/ob_fts_index_builder_util.h"
+#include "sql/resolver/dml/ob_stmt_expr_visitor.h"
 #include "sql/optimizer/ob_log_insert.h"
 #include "sql/ob_sql_trans_control.h"
 
@@ -11987,6 +11988,43 @@ int ObLogPlan::construct_startup_filter_for_limit(ObRawExpr *limit_expr, ObLogic
   return ret;
 }
 
+// Enable membership scans for scalar COUNT(*) without row-value consumers.
+// Inspect every expression scope so ordering, HAVING and other score/column
+// consumers retain the full retrieval path.
+static bool is_fts_count_only_stmt(const ObDMLStmt *stmt)
+{
+  bool count_only = false;
+  if (nullptr != stmt && stmt->is_select_stmt()) {
+    const ObSelectStmt *select = static_cast<const ObSelectStmt *>(stmt);
+    if (select->is_scala_group_by() && 1 == select->get_aggr_item_size()
+        && 1 == select->get_select_item_size()) {
+      const ObAggFunRawExpr *agg = select->get_aggr_item(0);
+      count_only = nullptr != agg && T_FUN_COUNT == agg->get_expr_type()
+          && agg->get_real_param_exprs().empty() && select->get_select_item(0).expr_ == agg;
+    }
+  }
+  return count_only;
+}
+
+static int check_fts_score_use(ObRawExpr *expr, const ObRawExpr *membership_pred, bool &needs_score)
+{
+  int ret = OB_SUCCESS;
+  if (OB_ISNULL(expr)) {
+    ret = OB_ERR_UNEXPECTED;
+  } else if (expr == membership_pred) {
+    // A posting has positive term frequency and the BM25 IDF is clamped to a
+    // positive epsilon. Its natural-language score is therefore always > 0.
+  } else if (expr->is_match_against_expr() || expr->is_column_ref_expr()) {
+    needs_score = true;
+  } else {
+    for (int64_t i = 0; OB_SUCC(ret) && !needs_score && i < expr->get_param_count(); ++i) {
+      if (OB_FAIL(SMART_CALL(check_fts_score_use(expr->get_param_expr(i), membership_pred, needs_score)))) {
+      }
+    }
+  }
+  return ret;
+}
+
 int ObLogPlan::prepare_text_retrieval_scan(const ObIArray<ObRawExpr *> &scan_match_exprs,
                                            const ObIArray<ObRawExpr *> &scan_match_filters,
                                            const ObIArray<ObRawExpr *> &all_match_filters,
@@ -12039,12 +12077,43 @@ int ObLogPlan::prepare_text_retrieval_scan(const ObIArray<ObRawExpr *> &scan_mat
     ObTextRetrievalInfo &tr_info = table_scan->get_text_retrieval_info();
     tr_info.match_expr_ = match_against;
     tr_info.pushdown_match_filter_ = match_pred;
+    if (NATURAL_LANGUAGE_MODE == match_against->get_mode_flag()
+        && !match_against->is_es_match()
+        && is_fts_count_only_stmt(get_stmt())
+        && 1 == get_stmt()->get_table_items().count()
+        && get_stmt()->get_subquery_exprs().empty()
+        && T_OP_BOOL == match_pred->get_expr_type()
+        && 1 == match_pred->get_param_count()
+        && match_pred->get_param_expr(0) == match_against) {
+      ObSEArray<ObRawExpr *, 16> relation_exprs;
+      ObStmtExprGetter getter;
+      getter.set_relation_scope();
+      getter.remove_scope(SCOPE_WHERE);
+      bool needs_score = false;
+      if (OB_FAIL(get_stmt()->get_relation_exprs(relation_exprs, getter))) {
+      }
+      for (int64_t i = 0; OB_SUCC(ret) && !needs_score && i < relation_exprs.count(); ++i) {
+        if (OB_FAIL(check_fts_score_use(relation_exprs.at(i), nullptr, needs_score))) {
+        }
+      }
+      const ObIArray<ObRawExpr *> &conditions = get_stmt()->get_condition_exprs();
+      for (int64_t i = 0; OB_SUCC(ret) && !needs_score && i < conditions.count(); ++i) {
+        if (OB_FAIL(check_fts_score_use(conditions.at(i), match_pred, needs_score))) {
+        }
+      }
+      if (OB_SUCC(ret) && !needs_score) {
+        tr_info.need_calc_relevance_ = false;
+        // The posting union already implements this positive membership test.
+        tr_info.pushdown_match_filter_ = nullptr;
+      }
+    }
     // The mapping table is absent when the data-table rowkey is used as the document ID.
     table_scan->set_doc_id_index_table_id(tr_info.doc_id_idx_tid_);
     if (table_scan->is_vec_adaptive_scan() || table_scan->is_vec_idx_scan_post_filter()) {
       table_scan->set_rowkey_doc_table_id(tr_info.rowkey_idx_tid_);
     }
-    if (OB_FAIL(table_scan->set_is_skip_rowkey_doc(tr_info.doc_id_idx_tid_ == OB_INVALID_ID))) {
+    if (OB_FAIL(ret)) {
+    } else if (OB_FAIL(table_scan->set_is_skip_rowkey_doc(tr_info.doc_id_idx_tid_ == OB_INVALID_ID))) {
     } else if (OB_FAIL(table_scan->set_is_skip_rowkey_doc(tr_info.rowkey_idx_tid_ == OB_INVALID_ID))) {
     }
   }

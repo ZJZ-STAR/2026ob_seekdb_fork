@@ -1,0 +1,47 @@
+# Regression: natural-language membership can omit unused BM25 scores.
+--disable_warnings
+DROP DATABASE IF EXISTS fts_score_elision;
+--enable_warnings
+CREATE DATABASE fts_score_elision;
+USE fts_score_elision;
+CREATE TABLE docs(id INT PRIMARY KEY, body TEXT, FULLTEXT INDEX ft(body) WITH PARSER beng);
+INSERT INTO docs VALUES (1,'database hello hello'),(2,'database audit'),
+  (3,'hello world'),(4,'unrelated document'),(5,''),(6,NULL);
+SELECT id FROM docs WHERE MATCH(body) AGAINST('hello database') ORDER BY id;
+SELECT COUNT(*),SUM(id) FROM docs WHERE MATCH(body) AGAINST('hello database');
+SELECT id FROM docs WHERE MATCH(body) AGAINST('hello database') AND id>1 ORDER BY id;
+SELECT id FROM docs WHERE MATCH(body) AGAINST('hello database') ORDER BY id LIMIT 1 OFFSET 1;
+SELECT id FROM docs WHERE MATCH(body) AGAINST('hello database') LIMIT 0;
+SELECT id FROM docs WHERE MATCH(body) AGAINST('hello hello database') ORDER BY id;
+SELECT COUNT(*) FROM docs WHERE MATCH(body) AGAINST('missingunique');
+SELECT COUNT(*) FROM docs WHERE MATCH(body) AGAINST('the and');
+SELECT COUNT(*) FROM docs WHERE MATCH(body) AGAINST('');
+SELECT COUNT(*) FROM docs WHERE MATCH(body) AGAINST(NULL);
+SELECT id,ROUND(MATCH(body) AGAINST('hello database'),8) AS score
+  FROM docs WHERE MATCH(body) AGAINST('hello database') ORDER BY id;
+SELECT id,(MATCH(body) AGAINST('hello database') IS TRUE) AS matched
+  FROM docs WHERE MATCH(body) AGAINST('hello database') ORDER BY id;
+SELECT id FROM docs WHERE MATCH(body) AGAINST('hello database')
+  ORDER BY MATCH(body) AGAINST('hello database') DESC,id;
+SELECT id FROM docs WHERE MATCH(body) AGAINST('hello database')>0.25 ORDER BY id;
+SELECT id FROM docs WHERE MATCH(body) AGAINST('hello database')
+  AND MATCH(body) AGAINST('hello database')>100 ORDER BY id;
+SELECT id FROM docs WHERE MATCH(body) AGAINST('+database -audit' IN BOOLEAN MODE) ORDER BY id;
+SELECT id FROM docs WHERE MATCH(body) AGAINST('hello database')
+  GROUP BY id HAVING MAX(MATCH(body) AGAINST('hello database'))>0.25 ORDER BY id;
+SELECT id,ROW_NUMBER() OVER(ORDER BY MATCH(body) AGAINST('hello database') DESC,id) AS rank_id
+  FROM docs WHERE MATCH(body) AGAINST('hello database') ORDER BY id;
+PREPARE score_filter FROM 'SELECT id FROM docs WHERE MATCH(body) AGAINST(?) AND MATCH(body) AGAINST(?)>? ORDER BY id';
+SET @query='hello database',@threshold=0;
+EXECUTE score_filter USING @query,@query,@threshold;
+SET @threshold=100;
+EXECUTE score_filter USING @query,@query,@threshold;
+DEALLOCATE PREPARE score_filter;
+START TRANSACTION;
+DELETE FROM docs;
+ROLLBACK;
+UPDATE docs SET body='replacement audit' WHERE id=1;
+DELETE FROM docs WHERE id=2;
+INSERT INTO docs VALUES(7,'database hello');
+SELECT id FROM docs WHERE MATCH(body) AGAINST('hello database') ORDER BY id;
+DROP DATABASE fts_score_elision;

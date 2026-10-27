@@ -1,0 +1,27 @@
+{
+  "label": "paired-before-1",
+  "timestamp": "2026-10-27T15:45:52.826914+08:00",
+  "binary": "/home/PeterPan/2026ob/results/fts-performance/seekdb-before",
+  "binary_sha256": "51081a3001d0c8f728fc0191d2decbb99ab74b7790c309ad13d643dbee703f49",
+  "pid": 3498878,
+  "command": [
+    "/home/PeterPan/2026ob/results/fts-performance/seekdb-before",
+    "--nodaemon",
+    "--base-dir=/home/PeterPan/2026ob/run/seekdb-fts-benchmark",
+    "--data-dir=/home/PeterPan/2026ob/data/seekdb-fts-benchmark",
+    "--redo-dir=/home/PeterPan/2026ob/data/seekdb-fts-benchmark/redo",
+    "--parameter=mysql_port_mode=random",
+    "--parameter=rpc_port=12904",
+    "--parameter=cpu_count=4",
+    "--parameter=memory_budget=4G",
+    "--parameter=datafile_maxsize=10G",
+    "--parameter=log_disk_size=2G",
+    ""
+  ],
+  "kernel": "5.15.0-67-generic",
+  "load_average": [
+    4.44,
+    4.37,
+    3.34
+  ]
+}

@@ -1,0 +1,63 @@
+{
+  "before_files": [
+    "/home/PeterPan/2026ob/results/fts-performance/paired-before-1.txt",
+    "/home/PeterPan/2026ob/results/fts-performance/paired-before-2.txt"
+  ],
+  "after_files": [
+    "/home/PeterPan/2026ob/results/fts-performance/paired-after-1.txt",
+    "/home/PeterPan/2026ob/results/fts-performance/paired-after-2.txt"
+  ],
+  "metrics": {
+    "build_ik_all_sec": {
+      "before": 24.8535,
+      "after": 20.2205,
+      "improvement": 0.18641237652644493
+    },
+    "build_ik_content_sec": {
+      "before": 16.6025,
+      "after": 13.9845,
+      "improvement": 0.15768709531697025
+    },
+    "build_beng_en_sec": {
+      "before": 10.678,
+      "after": 9.707,
+      "improvement": 0.09093463195354935
+    },
+    "tokenize_ik_avg_ms": {
+      "before": 0.18030000000000002,
+      "after": 0.1633,
+      "improvement": 0.09428729894620085
+    },
+    "tokenize_beng_avg_ms": {
+      "before": 0.09175,
+      "after": 0.09154999999999999,
+      "improvement": 0.002179836512261643
+    },
+    "query_cn_avg_ms": {
+      "before": 2.75085,
+      "after": 2.0513,
+      "improvement": 0.2543032153697948
+    },
+    "query_beng_avg_ms": {
+      "before": 3.91355,
+      "after": 2.9722,
+      "improvement": 0.2405360861621801
+    },
+    "query_mixed_avg_ms": {
+      "before": 3.1386000000000003,
+      "after": 2.32665,
+      "improvement": 0.25869814567004407
+    },
+    "query_limit_avg_ms": {
+      "before": 3.52825,
+      "after": 3.44855,
+      "improvement": 0.022589102246155995
+    }
+  },
+  "category_improvements": {
+    "build": 0.1450113679323215,
+    "tokenize": 0.04823356772923124,
+    "query": 0.19403163736204374
+  },
+  "mean_category_improvement": 0.12909219100786548
+}

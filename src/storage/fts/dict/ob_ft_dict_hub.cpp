@@ -28,6 +28,82 @@ namespace oceanbase
 {
 namespace storage
 {
+// The built-in dictionary contents are process-wide and do not change at
+// runtime. Keep their wrappers and pinned DAT blocks together, rather than
+// acquiring and rebuilding all three wrappers for every document/query.
+struct BuiltinIKDicts
+{
+  BuiltinIKDicts()
+      : allocator_(lib::ObMemAttr("FTBuiltinDict")),
+        main_cache_(allocator_), quan_cache_(allocator_), stop_cache_(allocator_),
+        main_(allocator_, &main_cache_, descriptor("main_dict", ObFTDictType::DICT_IK_MAIN)),
+        quan_(allocator_, &quan_cache_, descriptor("quan_dict", ObFTDictType::DICT_IK_QUAN)),
+        stop_(allocator_, &stop_cache_, descriptor("stopword", ObFTDictType::DICT_IK_STOP))
+  {}
+
+  static ObFTDictDesc descriptor(const char *name, ObFTDictType type)
+  {
+    return ObFTDictDesc(name, type, CHARSET_UTF8MB4, CS_TYPE_UTF8MB4_BIN);
+  }
+
+  int init(ObFTDictHub &hub)
+  {
+    int ret = OB_SUCCESS;
+    const ObFTDictDesc descs[] = {
+        descriptor("main_dict", ObFTDictType::DICT_IK_MAIN),
+        descriptor("quan_dict", ObFTDictType::DICT_IK_QUAN),
+        descriptor("stopword", ObFTDictType::DICT_IK_STOP)};
+    ObFTCacheRangeContainer *caches[] = {&main_cache_, &quan_cache_, &stop_cache_};
+    ObFTRangeDict *dicts[] = {&main_, &quan_, &stop_};
+    for (int64_t i = 0; OB_SUCC(ret) && i < 3; ++i) {
+      if (OB_FAIL(hub.load_cache(descs[i], *caches[i])) && OB_ENTRY_NOT_EXIST == ret) {
+        ret = hub.build_cache(descs[i], *caches[i]);
+      }
+      if (OB_SUCC(ret)) {
+        ret = dicts[i]->init();
+      }
+    }
+    return ret;
+  }
+
+  ObArenaAllocator allocator_;
+  ObFTCacheRangeContainer main_cache_;
+  ObFTCacheRangeContainer quan_cache_;
+  ObFTCacheRangeContainer stop_cache_;
+  ObFTRangeDict main_;
+  ObFTRangeDict quan_;
+  ObFTRangeDict stop_;
+};
+
+int ObFTDictHub::get_builtin_ik_dicts(ObIFTDict *&main, ObIFTDict *&quan, ObIFTDict *&stop)
+{
+  int ret = OB_SUCCESS;
+  BuiltinIKDicts *dicts = builtin_ik_dicts_.load(std::memory_order_acquire);
+  if (!is_inited_) {
+    ret = OB_NOT_INIT;
+  } else if (nullptr == dicts) {
+    lib::ObMutexGuard guard(builtin_ik_lock_);
+    dicts = builtin_ik_dicts_.load(std::memory_order_acquire);
+    if (nullptr == dicts) {
+      if (OB_ISNULL(dicts = OB_NEW(BuiltinIKDicts, "FTBuiltinDict"))) {
+        ret = OB_ALLOCATE_MEMORY_FAILED;
+      } else if (OB_FAIL(dicts->init(*this))) {
+        OB_DELETE(BuiltinIKDicts, "FTBuiltinDict", dicts);
+        dicts = nullptr;
+      } else {
+        // Publish only a complete snapshot. Failed initialization is retryable.
+        builtin_ik_dicts_.store(dicts, std::memory_order_release);
+      }
+    }
+  }
+  if (OB_SUCC(ret)) {
+    main = &dicts->main_;
+    quan = &dicts->quan_;
+    stop = &dicts->stop_;
+  }
+  return ret;
+}
+
 int ObFTDictHub::init()
 {
   static constexpr int K_MAX_DICT_BUCKET = 128; // for now, only built-in dicts.
@@ -43,6 +119,12 @@ int ObFTDictHub::init()
 int ObFTDictHub::destroy()
 {
   int ret = OB_SUCCESS;
+  // Global parser-data teardown runs after its users have stopped.
+  BuiltinIKDicts *dicts = builtin_ik_dicts_.exchange(nullptr, std::memory_order_acq_rel);
+  if (nullptr != dicts) {
+    OB_DELETE(BuiltinIKDicts, "FTBuiltinDict", dicts);
+  }
+  dict_map_.destroy();
   is_inited_ = false;
   return ret;
 }
